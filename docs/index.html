@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bill Payment API - Documentation</title>
+  <meta name="description" content="Interactive API documentation for the Bill Payment REST API. Practice API automation with real endpoints.">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E💳%3C/text%3E%3C/svg%3E">
+  
+  <!-- Swagger UI CSS -->
+  <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css">
+  
+  <style>
+    /* Custom theme */
+    :root {
+      --primary-color: #3b82f6;
+      --success-color: #10b981;
+      --warning-color: #f59e0b;
+      --error-color: #ef4444;
+    }
+    
+    html {
+      box-sizing: border-box;
+      overflow-y: scroll;
+    }
+    
+    *,
+    *:before,
+    *:after {
+      box-sizing: inherit;
+    }
+    
+    body {
+      margin: 0;
+      background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+      min-height: 100vh;
+    }
+    
+    /* Custom header */
+    .custom-header {
+      background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+      color: white;
+      padding: 2rem;
+      text-align: center;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    
+    .custom-header h1 {
+      margin: 0 0 0.5rem 0;
+      font-size: 2.5rem;
+      font-weight: 700;
+    }
+    
+    .custom-header p {
+      margin: 0;
+      opacity: 0.9;
+      font-size: 1.1rem;
+    }
+    
+    /* Quick start cards */
+    .quick-start {
+      max-width: 1460px;
+      margin: -1.5rem auto 2rem;
+      padding: 0 1rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      border-top: 4px solid var(--primary-color);
+    }
+    
+    .card.success { border-top-color: var(--success-color); }
+    .card.warning { border-top-color: var(--warning-color); }
+    
+    .card h3 {
+      margin: 0 0 0.75rem 0;
+      color: #1e293b;
+      font-size: 1.1rem;
+    }
+    
+    .card code {
+      display: block;
+      background: #f1f5f9;
+      padding: 0.75rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      color: #334155;
+      word-break: break-all;
+      margin-bottom: 0.5rem;
+    }
+    
+    .card p {
+      margin: 0;
+      color: #64748b;
+      font-size: 0.9rem;
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    
+    .badge-blue { background: #dbeafe; color: #1e40af; }
+    .badge-green { background: #d1fae5; color: #065f46; }
+    .badge-yellow { background: #fef3c7; color: #92400e; }
+    
+    /* Copy button */
+    .copy-btn {
+      background: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 0.4rem 0.8rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      margin-top: 0.5rem;
+      transition: background 0.2s;
+    }
+    
+    .copy-btn:hover {
+      background: #2563eb;
+    }
+    
+    .copy-btn.copied {
+      background: var(--success-color);
+    }
+    
+    /* Swagger UI container */
+    #swagger-ui {
+      max-width: 1460px;
+      margin: 0 auto;
+      padding: 0 1rem 2rem;
+    }
+    
+    /* Swagger UI customization */
+    .swagger-ui .topbar {
+      display: none;
+    }
+    
+    .swagger-ui .info {
+      margin: 30px 0;
+    }
+    
+    .swagger-ui .info .title {
+      color: #1e293b;
+    }
+    
+    .swagger-ui .info .description p {
+      color: #475569;
+    }
+    
+    .swagger-ui .scheme-container {
+      background: #f8fafc;
+      padding: 15px 20px;
+      border-radius: 8px;
+      box-shadow: none;
+    }
+    
+    .swagger-ui .opblock-tag {
+      border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .swagger-ui .opblock {
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 12px;
+    }
+    
+    .swagger-ui .opblock.opblock-get {
+      border-color: var(--primary-color);
+      background: rgba(59, 130, 246, 0.05);
+    }
+    
+    .swagger-ui .opblock.opblock-get .opblock-summary-method {
+      background: var(--primary-color);
+    }
+    
+    .swagger-ui .opblock.opblock-post {
+      border-color: var(--success-color);
+      background: rgba(16, 185, 129, 0.05);
+    }
+    
+    .swagger-ui .opblock.opblock-post .opblock-summary-method {
+      background: var(--success-color);
+    }
+    
+    .swagger-ui .opblock.opblock-put {
+      border-color: var(--warning-color);
+      background: rgba(245, 158, 11, 0.05);
+    }
+    
+    .swagger-ui .opblock.opblock-put .opblock-summary-method {
+      background: var(--warning-color);
+    }
+    
+    .swagger-ui .opblock.opblock-delete {
+      border-color: var(--error-color);
+      background: rgba(239, 68, 68, 0.05);
+    }
+    
+    .swagger-ui .opblock.opblock-delete .opblock-summary-method {
+      background: var(--error-color);
+    }
+    
+    .swagger-ui .opblock.opblock-patch {
+      border-color: #8b5cf6;
+      background: rgba(139, 92, 246, 0.05);
+    }
+    
+    .swagger-ui .opblock.opblock-patch .opblock-summary-method {
+      background: #8b5cf6;
+    }
+    
+    .swagger-ui .btn.execute {
+      background: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+    
+    .swagger-ui .btn.execute:hover {
+      background: #2563eb;
+    }
+    
+    .swagger-ui .btn.authorize {
+      border-color: var(--success-color);
+      color: var(--success-color);
+    }
+    
+    .swagger-ui .btn.authorize svg {
+      fill: var(--success-color);
+    }
+    
+    .swagger-ui .authorization__btn.locked {
+      background: var(--success-color);
+    }
+    
+    .swagger-ui .model-box {
+      background: #f8fafc;
+    }
+    
+    .swagger-ui section.models {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+    }
+    
+    .swagger-ui section.models h4 {
+      border-bottom: 1px solid #e2e8f0;
+    }
+    
+    /* Footer */
+    .custom-footer {
+      text-align: center;
+      padding: 2rem;
+      color: #64748b;
+      font-size: 0.9rem;
+    }
+    
+    .custom-footer a {
+      color: var(--primary-color);
+      text-decoration: none;
+    }
+    
+    .custom-footer a:hover {
+      text-decoration: underline;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      .custom-header {
+        padding: 1.5rem 1rem;
+      }
+      
+      .custom-header h1 {
+        font-size: 1.75rem;
+      }
+      
+      .quick-start {
+        margin: -1rem auto 1rem;
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Custom Header -->
+  <div class="custom-header">
+    <h1>💳 Bill Payment API</h1>
+    <p>Practice API automation with realistic bill payment endpoints</p>
+  </div>
+  
+  <!-- Quick Start Cards -->
+  <div class="quick-start">
+    <div class="card">
+      <h3>🔑 API Key Authentication</h3>
+      <code>X-API-Key: demo-api-key-123</code>
+      <p><span class="badge badge-blue">Header</span> Add this header to all requests</p>
+      <button class="copy-btn" onclick="copyToClipboard('demo-api-key-123', this)">Copy Key</button>
+    </div>
+    
+    <div class="card success">
+      <h3>🎫 Bearer Token</h3>
+      <code>Authorization: Bearer demo-jwt-token-456</code>
+      <p><span class="badge badge-green">JWT</span> Alternative authentication method</p>
+      <button class="copy-btn" onclick="copyToClipboard('demo-jwt-token-456', this)">Copy Token</button>
+    </div>
+    
+    <div class="card warning">
+      <h3>👤 Basic Auth</h3>
+      <code>demo:password123</code>
+      <p><span class="badge badge-yellow">Base64</span> ZGVtbzpwYXNzd29yZDEyMw==</p>
+      <button class="copy-btn" onclick="copyToClipboard('ZGVtbzpwYXNzd29yZDEyMw==', this)">Copy Base64</button>
+    </div>
+  </div>
+  
+  <!-- Swagger UI -->
+  <div id="swagger-ui"></div>
+  
+  <!-- Footer -->
+  <div class="custom-footer">
+    <p>
+      Built for API automation practice • 
+      <a href="https://github.com/gauravkhuraana/APIAutomation" target="_blank">GitHub Repository</a> • 
+      Powered by Cloudflare Workers
+    </p>
+  </div>
+  
+  <!-- Swagger UI JavaScript -->
+  <script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-bundle.js" crossorigin></script>
+  <script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-standalone-preset.js" crossorigin></script>
+  
+  <script>
+    // Initialize Swagger UI
+    window.onload = function() {
+      const ui = SwaggerUIBundle({
+        url: "./openapi.yaml",
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        presets: [
+          SwaggerUIBundle.presets.apis,
+          SwaggerUIStandalonePreset
+        ],
+        plugins: [
+          SwaggerUIBundle.plugins.DownloadUrl
+        ],
+        layout: "StandaloneLayout",
+        validatorUrl: null,
+        supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch', 'head'],
+        persistAuthorization: true,
+        filter: true,
+        tryItOutEnabled: true,
+        // Pre-populate auth with demo API key
+        requestInterceptor: (request) => {
+          // Add request tracing header
+          if (!request.headers['X-Request-Id']) {
+            request.headers['X-Request-Id'] = 'swagger-' + Math.random().toString(36).substr(2, 9);
+          }
+          return request;
+        },
+        onComplete: function() {
+          // Auto-authorize with demo API key after UI loads
+          ui.preauthorizeApiKey("ApiKeyHeader", "demo-api-key-123");
+          console.log('✅ Swagger UI loaded! Pre-authorized with demo API key.');
+        }
+      });
+      
+      window.ui = ui;
+    };
+    
+    // Copy to clipboard helper
+    function copyToClipboard(text, button) {
+      navigator.clipboard.writeText(text).then(() => {
+        const originalText = button.textContent;
+        button.textContent = 'Copied!';
+        button.classList.add('copied');
+        setTimeout(() => {
+          button.textContent = originalText;
+          button.classList.remove('copied');
+        }, 2000);
+      }).catch(err => {
+        console.error('Failed to copy:', err);
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        button.textContent = 'Copied!';
+        button.classList.add('copied');
+        setTimeout(() => {
+          button.textContent = button.dataset.originalText || 'Copy';
+          button.classList.remove('copied');
+        }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>

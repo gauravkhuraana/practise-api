@@ -1,0 +1,35 @@
+{
+  "name": "billpay-api",
+  "version": "1.0.0",
+  "description": "Bill Payment API for API automation practice - Cloudflare Workers + D1",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply billpay-db --local",
+    "db:migrate:prod": "wrangler d1 migrations apply billpay-db --remote",
+    "db:seed": "wrangler d1 execute billpay-db --local --file=./src/db/seed.sql",
+    "db:seed:prod": "wrangler d1 execute billpay-db --remote --file=./src/db/seed.sql",
+    "db:reset": "wrangler d1 execute billpay-db --local --file=./src/db/reset.sql && npm run db:seed",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "api",
+    "cloudflare-workers",
+    "d1",
+    "swagger",
+    "openapi",
+    "bill-payment",
+    "api-automation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20231218.0",
+    "typescript": "^5.3.3",
+    "wrangler": "^3.22.1"
+  },
+  "dependencies": {
+    "itty-router": "^4.0.27"
+  }
+}

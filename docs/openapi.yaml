@@ -1,0 +1,2422 @@
+openapi: 3.0.3
+info:
+  title: Bill Payment API
+  description: |
+    A comprehensive RESTful API for bill payment operations, designed for API automation practice.
+
+    ## Overview
+    This API provides endpoints to manage billers, bills, payments, payment methods, and users.
+    It supports various authentication methods and includes realistic business logic.
+
+    ## Authentication
+    The API supports multiple authentication methods. All endpoints except `/health` require authentication.
+
+    ### API Key (Recommended for Testing)
+    - **Header**: `X-API-Key: demo-api-key-123`
+    - **Query Parameter**: `?api_key=demo-api-key-123`
+
+    ### Bearer Token (JWT)
+    ```
+    Authorization: Bearer demo-jwt-token-456
+    ```
+
+    ### Basic Authentication
+    ```
+    Authorization: Basic ZGVtbzpwYXNzd29yZDEyMw==
+    ```
+    (Credentials: `demo:password123`)
+
+    ### OAuth2 Client Credentials
+    ```bash
+    POST /oauth/token
+    Content-Type: application/x-www-form-urlencoded
+
+    grant_type=client_credentials&client_id=demo-client&client_secret=demo-secret-789
+    ```
+
+    ## Rate Limiting
+    - **Limit**: 100 requests per minute per IP
+    - **Headers**: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
+    - **429 Response**: Includes `Retry-After` header
+
+    ## Request Tracing
+    All requests include an `X-Request-Id` header for tracing. You can provide your own via the request header.
+
+    ## Data Reset
+    Demo data is reset weekly. Records created via API include a `createdBy` field for filtering.
+
+  version: 1.0.0
+  contact:
+    name: API Support
+    url: https://github.com/gauravkhuraana/APIAutomation
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://billpay-api.gauravkhurana-practice-api.workers.dev
+    description: Production (Cloudflare Workers)
+  - url: http://localhost:8787
+    description: Local Development
+
+tags:
+  - name: Health
+    description: Health check endpoints (no authentication required)
+  - name: Auth
+    description: Authentication and OAuth2 token endpoints
+  - name: Billers
+    description: Service providers (telecom, electricity, etc.)
+  - name: Bills
+    description: User bills and bill management
+  - name: Payments
+    description: Payment processing and history
+  - name: Payment Methods
+    description: User payment methods (UPI, cards, etc.)
+  - name: Users
+    description: User management
+
+paths:
+  # ============================================
+  # HEALTH CHECK
+  # ============================================
+  /health:
+    get:
+      tags: [Health]
+      summary: Basic health check
+      description: Returns API health status. No authentication required.
+      operationId: healthCheck
+      security: []
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                success: true
+                data:
+                  status: healthy
+                  service: billpay-api
+                  version: v1
+                  timestamp: "2025-12-18T10:30:00.000Z"
+
+  /health/db:
+    get:
+      tags: [Health]
+      summary: Database health check
+      description: Checks database connectivity. No authentication required.
+      operationId: healthCheckDb
+      security: []
+      responses:
+        '200':
+          description: Database is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DbHealthResponse'
+        '503':
+          description: Database unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ============================================
+  # AUTHENTICATION
+  # ============================================
+  /oauth/token:
+    post:
+      tags: [Auth]
+      summary: OAuth2 Token Endpoint
+      description: |
+        Get an access token using OAuth2 flows.
+
+        **Supported Grant Types:**
+        - `client_credentials` - For server-to-server authentication
+        - `password` - For user authentication (demo purposes)
+        - `refresh_token` - To refresh an existing token
+
+        **Demo Credentials:**
+        - Client ID: `demo-client`
+        - Client Secret: `demo-secret-789`
+        - Username: `demo`
+        - Password: `password123`
+      operationId: getToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                grant_type:
+                  type: string
+                  enum: [client_credentials, password, refresh_token]
+                  description: OAuth2 grant type
+                client_id:
+                  type: string
+                  description: Client ID (for client_credentials)
+                  example: demo-client
+                client_secret:
+                  type: string
+                  description: Client secret (for client_credentials)
+                  example: demo-secret-789
+                username:
+                  type: string
+                  description: Username (for password grant)
+                  example: demo
+                password:
+                  type: string
+                  description: Password (for password grant)
+                  example: password123
+                refresh_token:
+                  type: string
+                  description: Refresh token (for refresh_token grant)
+              required:
+                - grant_type
+            examples:
+              clientCredentials:
+                summary: Client Credentials Grant
+                value:
+                  grant_type: client_credentials
+                  client_id: demo-client
+                  client_secret: demo-secret-789
+              passwordGrant:
+                summary: Password Grant
+                value:
+                  grant_type: password
+                  username: demo
+                  password: password123
+          application/json:
+            schema:
+              type: object
+              properties:
+                grant_type:
+                  type: string
+                client_id:
+                  type: string
+                client_secret:
+                  type: string
+      responses:
+        '200':
+          description: Token issued successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+              example:
+                access_token: demo-jwt-token-456
+                token_type: Bearer
+                expires_in: 3600
+                scope: "read:all write:all"
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user info
+      description: Returns information about the authenticated user/client
+      operationId: getCurrentUser
+      responses:
+        '200':
+          description: Current user information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthMeResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ============================================
+  # BILLERS
+  # ============================================
+  /v1/billers:
+    get:
+      tags: [Billers]
+      summary: List all billers
+      description: |
+        Get a paginated list of all billers (service providers).
+        Supports filtering by category, active status, and search.
+      operationId: listBillers
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: category
+          in: query
+          description: Filter by biller category
+          schema:
+            $ref: '#/components/schemas/BillerCategory'
+        - name: is_active
+          in: query
+          description: Filter by active status
+          schema:
+            type: boolean
+        - name: search
+          in: query
+          description: Search in name, display name, description
+          schema:
+            type: string
+            example: airtel
+        - name: fetch_bill_supported
+          in: query
+          description: Filter billers that support bill fetching
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: List of billers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillersListResponse'
+              examples:
+                telecomBillers:
+                  summary: Telecom billers
+                  value:
+                    success: true
+                    data:
+                      - id: biller-airtel-postpaid
+                        name: airtel
+                        displayName: Airtel Postpaid
+                        category: telecom
+                        minAmount: 1
+                        maxAmount: 50000
+                        isActive: true
+                    meta:
+                      requestId: "abc-123"
+                      timestamp: "2025-12-18T10:30:00.000Z"
+                      version: v1
+                      pagination:
+                        page: 1
+                        limit: 10
+                        total: 25
+                        totalPages: 3
+                        hasNext: true
+                        hasPrev: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Billers]
+      summary: Create a new biller
+      description: Create a new biller/service provider. Typically for admin use.
+      operationId: createBiller
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BillerInput'
+            examples:
+              minimalBiller:
+                summary: Minimal required fields
+                value:
+                  name: newbiller
+                  displayName: New Biller Inc.
+                  category: telecom
+              fullBiller:
+                summary: All fields
+                value:
+                  name: newbiller
+                  displayName: New Biller Inc.
+                  category: electricity
+                  description: A new electricity provider
+                  customerIdLabel: Account Number
+                  customerIdPattern: "^[0-9]{10}$"
+                  minAmount: 100
+                  maxAmount: 50000
+                  fetchBillSupported: true
+                  partialPaymentAllowed: true
+                  supportedPaymentModes: [upi, credit_card, debit_card]
+      responses:
+        '201':
+          description: Biller created
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URL of the created biller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillerResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /v1/billers/categories:
+    get:
+      tags: [Billers]
+      summary: List biller categories
+      description: Get all available biller categories with counts
+      operationId: listBillerCategories
+      responses:
+        '200':
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoriesResponse'
+
+  /v1/billers/{id}:
+    get:
+      tags: [Billers]
+      summary: Get biller by ID
+      description: Get detailed information about a specific biller
+      operationId: getBiller
+      parameters:
+        - $ref: '#/components/parameters/BillerId'
+      responses:
+        '200':
+          description: Biller details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillerResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Billers]
+      summary: Update biller (full replace)
+      description: Replace all biller fields. All required fields must be provided.
+      operationId: updateBiller
+      parameters:
+        - $ref: '#/components/parameters/BillerId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BillerInput'
+      responses:
+        '200':
+          description: Biller updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillerResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags: [Billers]
+      summary: Partial update biller
+      description: Update specific biller fields only
+      operationId: patchBiller
+      parameters:
+        - $ref: '#/components/parameters/BillerId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BillerPatch'
+            example:
+              isActive: false
+              maxAmount: 100000
+      responses:
+        '200':
+          description: Biller updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillerResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Billers]
+      summary: Delete biller
+      description: Delete a biller. Cannot delete if bills exist for this biller.
+      operationId: deleteBiller
+      parameters:
+        - $ref: '#/components/parameters/BillerId'
+      responses:
+        '200':
+          description: Biller deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    head:
+      tags: [Billers]
+      summary: Check if biller exists
+      description: Returns 200 if biller exists, 404 if not. No response body.
+      operationId: checkBillerExists
+      parameters:
+        - $ref: '#/components/parameters/BillerId'
+      responses:
+        '200':
+          description: Biller exists
+        '404':
+          description: Biller not found
+
+  # ============================================
+  # BILLS
+  # ============================================
+  /v1/bills:
+    get:
+      tags: [Bills]
+      summary: List bills
+      description: Get a paginated list of bills with optional filters
+      operationId: listBills
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: user_id
+          in: query
+          description: Filter by user ID
+          schema:
+            type: string
+            example: user-demo-001
+        - name: biller_id
+          in: query
+          description: Filter by biller ID
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter by bill status
+          schema:
+            $ref: '#/components/schemas/BillStatus'
+        - name: created_by
+          in: query
+          description: Filter by creator (API key identifier)
+          schema:
+            type: string
+        - name: due_before
+          in: query
+          description: Filter bills due before this date
+          schema:
+            type: string
+            format: date
+        - name: due_after
+          in: query
+          description: Filter bills due after this date
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: List of bills
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillsListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Bills]
+      summary: Create a new bill
+      description: Register a new bill for payment
+      operationId: createBill
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BillInput'
+            examples:
+              simpleBill:
+                summary: Simple bill
+                value:
+                  userId: user-demo-001
+                  billerId: biller-airtel-postpaid
+                  customerIdentifier: "9876543210"
+                  amount: 599.00
+              fullBill:
+                summary: Bill with all details
+                value:
+                  userId: user-demo-001
+                  billerId: biller-tata-power
+                  customerIdentifier: "1234567890"
+                  customerName: John Doe
+                  nickname: Home Electricity
+                  amount: 2500.00
+                  dueDate: "2025-12-25"
+                  billDate: "2025-12-01"
+                  billPeriod: "Dec 2025"
+                  status: pending
+      responses:
+        '201':
+          description: Bill created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          description: User or biller not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/bills/summary:
+    get:
+      tags: [Bills]
+      summary: Get bills summary
+      description: Get aggregated summary of bills by status
+      operationId: getBillsSummary
+      parameters:
+        - name: user_id
+          in: query
+          description: Filter by user ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Bills summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillsSummaryResponse'
+
+  /v1/bills/overdue:
+    get:
+      tags: [Bills]
+      summary: Get overdue bills
+      description: Get list of bills past their due date
+      operationId: getOverdueBills
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: user_id
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of overdue bills
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillsListResponse'
+
+  /v1/bills/{id}:
+    get:
+      tags: [Bills]
+      summary: Get bill by ID
+      operationId: getBill
+      parameters:
+        - $ref: '#/components/parameters/BillId'
+      responses:
+        '200':
+          description: Bill details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Bills]
+      summary: Update bill (full replace)
+      operationId: updateBill
+      parameters:
+        - $ref: '#/components/parameters/BillId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BillInput'
+      responses:
+        '200':
+          description: Bill updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags: [Bills]
+      summary: Partial update bill
+      operationId: patchBill
+      parameters:
+        - $ref: '#/components/parameters/BillId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BillPatch'
+            example:
+              status: paid
+              amount: 650.00
+      responses:
+        '200':
+          description: Bill updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillResponse'
+
+    delete:
+      tags: [Bills]
+      summary: Delete bill
+      description: Delete a bill. Cannot delete if payments exist for this bill.
+      operationId: deleteBill
+      parameters:
+        - $ref: '#/components/parameters/BillId'
+      responses:
+        '200':
+          description: Bill deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /v1/bills/{id}/fetch:
+    post:
+      tags: [Bills]
+      summary: Fetch latest bill from biller
+      description: |
+        Fetch the latest bill details from the biller's system.
+        Only works for billers with `fetchBillSupported: true`.
+        This is a simulated operation for demo purposes.
+      operationId: fetchBill
+      parameters:
+        - $ref: '#/components/parameters/BillId'
+      responses:
+        '200':
+          description: Bill fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillFetchResponse'
+        '400':
+          description: Biller does not support bill fetching
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ============================================
+  # PAYMENTS
+  # ============================================
+  /v1/payments:
+    get:
+      tags: [Payments]
+      summary: List payments
+      description: Get a paginated list of payments
+      operationId: listPayments
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: user_id
+          in: query
+          schema:
+            type: string
+        - name: bill_id
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/PaymentStatus'
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: List of payments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentsListResponse'
+
+    post:
+      tags: [Payments]
+      summary: Create/process a payment
+      description: |
+        Initiate a payment for a bill. The payment will be processed
+        immediately and the status will be returned.
+
+        **Note**: This is a simulated payment for demo purposes.
+        ~90% of payments succeed, ~10% fail randomly.
+      operationId: createPayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentInput'
+            examples:
+              upiPayment:
+                summary: UPI Payment
+                value:
+                  billId: bill-001
+                  amount: 599.00
+                  paymentMethodType: upi
+                  paymentMethodId: pm-upi-001
+              cardPayment:
+                summary: Credit Card Payment
+                value:
+                  billId: bill-001
+                  amount: 599.00
+                  paymentMethodType: credit_card
+                  paymentMethodId: pm-card-001
+      responses:
+        '201':
+          description: Payment processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+              examples:
+                success:
+                  summary: Successful payment
+                  value:
+                    success: true
+                    data:
+                      id: pay-abc123
+                      billId: bill-001
+                      status: completed
+                      transactionId: TXN20251218ABC123
+                      amount:
+                        value: 599.00
+                        currency: INR
+                      totalAmount:
+                        value: 599.00
+                        currency: INR
+                failed:
+                  summary: Failed payment
+                  value:
+                    success: true
+                    data:
+                      id: pay-xyz789
+                      status: failed
+                      failure:
+                        code: BANK_DECLINED
+                        reason: Payment declined by bank
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          description: Bill or payment method not found
+
+  /v1/payments/stats:
+    get:
+      tags: [Payments]
+      summary: Get payment statistics
+      description: Get aggregated payment statistics
+      operationId: getPaymentStats
+      parameters:
+        - name: user_id
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Payment statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentStatsResponse'
+
+  /v1/payments/{id}:
+    get:
+      tags: [Payments]
+      summary: Get payment by ID
+      operationId: getPayment
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+      responses:
+        '200':
+          description: Payment details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Payments]
+      summary: Delete payment
+      description: Delete a payment. Completed payments cannot be deleted.
+      operationId: deletePayment
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+      responses:
+        '200':
+          description: Payment deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+        '400':
+          description: Cannot delete completed payment
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/payments/{id}/refund:
+    post:
+      tags: [Payments]
+      summary: Refund a payment
+      description: Process a refund for a completed payment
+      operationId: refundPayment
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: number
+                  description: Refund amount (default: full amount)
+                reason:
+                  type: string
+                  description: Reason for refund
+            example:
+              reason: Customer requested refund
+      responses:
+        '200':
+          description: Refund processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundResponse'
+        '400':
+          description: Payment cannot be refunded (not completed)
+
+  /v1/payments/{id}/cancel:
+    post:
+      tags: [Payments]
+      summary: Cancel a payment
+      description: Cancel an initiated or processing payment
+      operationId: cancelPayment
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+      responses:
+        '200':
+          description: Payment cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '400':
+          description: Payment cannot be cancelled
+
+  # ============================================
+  # PAYMENT METHODS
+  # ============================================
+  /v1/payment-methods:
+    get:
+      tags: [Payment Methods]
+      summary: List payment methods
+      operationId: listPaymentMethods
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: user_id
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/PaymentMethodType'
+        - name: is_active
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: List of payment methods
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentMethodsListResponse'
+
+    post:
+      tags: [Payment Methods]
+      summary: Create payment method
+      operationId: createPaymentMethod
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentMethodInput'
+            examples:
+              upi:
+                summary: UPI Payment Method
+                value:
+                  userId: user-demo-001
+                  type: upi
+                  displayName: My UPI
+                  upiId: myupi@okaxis
+                  isDefault: true
+              creditCard:
+                summary: Credit Card
+                value:
+                  userId: user-demo-001
+                  type: credit_card
+                  displayName: HDFC Credit Card
+                  cardLastFour: "1234"
+                  cardNetwork: visa
+                  cardExpiryMonth: 12
+                  cardExpiryYear: 2027
+                  cardHolderName: JOHN DOE
+      responses:
+        '201':
+          description: Payment method created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentMethodResponse'
+
+  /v1/payment-methods/types:
+    get:
+      tags: [Payment Methods]
+      summary: List supported payment types
+      operationId: listPaymentTypes
+      responses:
+        '200':
+          description: List of payment types
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentTypesResponse'
+
+  /v1/payment-methods/{id}:
+    get:
+      tags: [Payment Methods]
+      summary: Get payment method by ID
+      operationId: getPaymentMethod
+      parameters:
+        - $ref: '#/components/parameters/PaymentMethodId'
+      responses:
+        '200':
+          description: Payment method details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentMethodResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Payment Methods]
+      summary: Update payment method
+      operationId: updatePaymentMethod
+      parameters:
+        - $ref: '#/components/parameters/PaymentMethodId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentMethodInput'
+      responses:
+        '200':
+          description: Payment method updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentMethodResponse'
+
+    patch:
+      tags: [Payment Methods]
+      summary: Partial update payment method
+      operationId: patchPaymentMethod
+      parameters:
+        - $ref: '#/components/parameters/PaymentMethodId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName:
+                  type: string
+                isDefault:
+                  type: boolean
+                isActive:
+                  type: boolean
+      responses:
+        '200':
+          description: Payment method updated
+
+    delete:
+      tags: [Payment Methods]
+      summary: Delete payment method
+      operationId: deletePaymentMethod
+      parameters:
+        - $ref: '#/components/parameters/PaymentMethodId'
+      responses:
+        '200':
+          description: Payment method deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+        '409':
+          description: Payment method in use by existing payments
+
+  /v1/payment-methods/{id}/set-default:
+    post:
+      tags: [Payment Methods]
+      summary: Set as default payment method
+      operationId: setDefaultPaymentMethod
+      parameters:
+        - $ref: '#/components/parameters/PaymentMethodId'
+      responses:
+        '200':
+          description: Set as default
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentMethodResponse'
+
+  # ============================================
+  # USERS
+  # ============================================
+  /v1/users:
+    get:
+      tags: [Users]
+      summary: List users
+      operationId: listUsers
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: kyc_status
+          in: query
+          schema:
+            $ref: '#/components/schemas/KycStatus'
+        - name: search
+          in: query
+          description: Search by email, name, or phone
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsersListResponse'
+
+    post:
+      tags: [Users]
+      summary: Create user
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserInput'
+            examples:
+              simpleUser:
+                summary: Minimal user
+                value:
+                  email: newuser@example.com
+                  firstName: New
+                  lastName: User
+              fullUser:
+                summary: User with all details
+                value:
+                  email: newuser@example.com
+                  phone: "+919876543210"
+                  firstName: New
+                  lastName: User
+                  kycStatus: pending
+                  address:
+                    line1: 123 Main Street
+                    city: Mumbai
+                    state: Maharashtra
+                    postalCode: "400001"
+                    country: IN
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '409':
+          description: User with this email already exists
+
+  /v1/users/{id}:
+    get:
+      tags: [Users]
+      summary: Get user by ID
+      operationId: getUser
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Users]
+      summary: Update user
+      operationId: updateUser
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserInput'
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+
+    patch:
+      tags: [Users]
+      summary: Partial update user
+      operationId: patchUser
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserPatch'
+      responses:
+        '200':
+          description: User updated
+
+    delete:
+      tags: [Users]
+      summary: Delete user
+      operationId: deleteUser
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: User deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+        '409':
+          description: User has associated bills
+
+  /v1/users/{id}/bills:
+    get:
+      tags: [Users]
+      summary: Get user's bills
+      operationId: getUserBills
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: User's bills
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillsListResponse'
+
+  /v1/users/{id}/payment-methods:
+    get:
+      tags: [Users]
+      summary: Get user's payment methods
+      operationId: getUserPaymentMethods
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: User's payment methods
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentMethodsListResponse'
+
+  /v1/users/{id}/transactions:
+    get:
+      tags: [Users]
+      summary: Get user's transactions
+      operationId: getUserTransactions
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: User's transaction history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionsListResponse'
+
+  /v1/users/{id}/verify-kyc:
+    post:
+      tags: [Users]
+      summary: Update KYC status
+      operationId: verifyUserKyc
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  $ref: '#/components/schemas/KycStatus'
+            example:
+              status: verified
+      responses:
+        '200':
+          description: KYC status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KycVerificationResponse'
+
+# ============================================
+# COMPONENTS
+# ============================================
+components:
+  securitySchemes:
+    ApiKeyHeader:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key passed in header
+    ApiKeyQuery:
+      type: apiKey
+      in: query
+      name: api_key
+      description: API key passed as query parameter
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Bearer token
+    BasicAuth:
+      type: http
+      scheme: basic
+      description: Basic authentication (username:password)
+    OAuth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: /oauth/token
+          scopes:
+            read:all: Read access to all resources
+            write:all: Write access to all resources
+        password:
+          tokenUrl: /oauth/token
+          scopes:
+            read:all: Read access
+            write:all: Write access
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      description: Page number (1-based)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    LimitParam:
+      name: limit
+      in: query
+      description: Items per page (max 100)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 10
+    BillerId:
+      name: id
+      in: path
+      required: true
+      description: Biller ID
+      schema:
+        type: string
+        example: biller-airtel-postpaid
+    BillId:
+      name: id
+      in: path
+      required: true
+      description: Bill ID
+      schema:
+        type: string
+        example: bill-001
+    PaymentId:
+      name: id
+      in: path
+      required: true
+      description: Payment ID
+      schema:
+        type: string
+        example: pay-001
+    PaymentMethodId:
+      name: id
+      in: path
+      required: true
+      description: Payment method ID
+      schema:
+        type: string
+        example: pm-upi-001
+    UserId:
+      name: id
+      in: path
+      required: true
+      description: User ID
+      schema:
+        type: string
+        example: user-demo-001
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: MISSING_AUTHENTICATION
+              message: Authentication required. Provide API Key, Bearer token, or Basic auth credentials.
+              traceId: abc-123
+              timestamp: "2025-12-18T10:30:00.000Z"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: NOT_FOUND
+              message: Resource not found
+              traceId: abc-123
+              timestamp: "2025-12-18T10:30:00.000Z"
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: VALIDATION_ERROR
+              message: Invalid input data
+              traceId: abc-123
+              timestamp: "2025-12-18T10:30:00.000Z"
+              details:
+                - field: email
+                  code: REQUIRED
+                  message: email is required
+    Conflict:
+      description: Conflict - resource already exists or cannot be deleted
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    # Base schemas
+    Money:
+      type: object
+      properties:
+        value:
+          type: number
+          format: double
+          example: 599.00
+        currency:
+          type: string
+          default: INR
+          example: INR
+
+    Address:
+      type: object
+      properties:
+        line1:
+          type: string
+          example: 123 Main Street
+        line2:
+          type: string
+        city:
+          type: string
+          example: Mumbai
+        state:
+          type: string
+          example: Maharashtra
+        postalCode:
+          type: string
+          example: "400001"
+        country:
+          type: string
+          default: IN
+          example: IN
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        total:
+          type: integer
+          example: 100
+        totalPages:
+          type: integer
+          example: 10
+        hasNext:
+          type: boolean
+          example: true
+        hasPrev:
+          type: boolean
+          example: false
+
+    ResponseMeta:
+      type: object
+      properties:
+        requestId:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+          example: v1
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: NOT_FOUND
+            message:
+              type: string
+              example: Resource not found
+            traceId:
+              type: string
+            timestamp:
+              type: string
+              format: date-time
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  code:
+                    type: string
+                  message:
+                    type: string
+
+    DeleteResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            deleted:
+              type: boolean
+              example: true
+            id:
+              type: string
+
+    # Health
+    HealthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            status:
+              type: string
+              enum: [healthy, unhealthy]
+            service:
+              type: string
+            version:
+              type: string
+            timestamp:
+              type: string
+              format: date-time
+
+    DbHealthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            status:
+              type: string
+            database:
+              type: string
+            billerCount:
+              type: integer
+
+    # Auth
+    TokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: integer
+          example: 3600
+        refresh_token:
+          type: string
+        scope:
+          type: string
+
+    AuthMeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            user:
+              type: object
+              properties:
+                id:
+                  type: string
+                email:
+                  type: string
+                name:
+                  type: string
+                scopes:
+                  type: array
+                  items:
+                    type: string
+            authMethod:
+              type: string
+              enum: [api_key, bearer, basic, oauth2]
+
+    # Enums
+    BillerCategory:
+      type: string
+      enum:
+        - telecom
+        - electricity
+        - water
+        - gas
+        - broadband
+        - dth
+        - insurance
+        - credit_card
+        - loan
+        - municipal_tax
+
+    BillStatus:
+      type: string
+      enum: [pending, paid, overdue, partially_paid, cancelled]
+
+    PaymentStatus:
+      type: string
+      enum: [initiated, processing, completed, failed, cancelled, refunded]
+
+    PaymentMethodType:
+      type: string
+      enum: [upi, credit_card, debit_card, net_banking, wallet]
+
+    KycStatus:
+      type: string
+      enum: [pending, verified, rejected]
+
+    # Biller schemas
+    Biller:
+      type: object
+      properties:
+        id:
+          type: string
+          example: biller-airtel-postpaid
+        name:
+          type: string
+          example: airtel
+        displayName:
+          type: string
+          example: Airtel Postpaid
+        category:
+          $ref: '#/components/schemas/BillerCategory'
+        logoUrl:
+          type: string
+          format: uri
+        description:
+          type: string
+        supportedPaymentModes:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentMethodType'
+        fetchBillSupported:
+          type: boolean
+        partialPaymentAllowed:
+          type: boolean
+        minAmount:
+          type: number
+          minimum: 0
+        maxAmount:
+          type: number
+        customerIdLabel:
+          type: string
+          example: Mobile Number
+        customerIdPattern:
+          type: string
+          description: Regex pattern for validation
+          example: "^[6-9][0-9]{9}$"
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    BillerInput:
+      type: object
+      required:
+        - name
+        - displayName
+        - category
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 50
+        displayName:
+          type: string
+          minLength: 2
+          maxLength: 100
+        category:
+          $ref: '#/components/schemas/BillerCategory'
+        logoUrl:
+          type: string
+          format: uri
+        description:
+          type: string
+          maxLength: 500
+        supportedPaymentModes:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentMethodType'
+        fetchBillSupported:
+          type: boolean
+          default: true
+        partialPaymentAllowed:
+          type: boolean
+          default: false
+        minAmount:
+          type: number
+          minimum: 0
+          default: 1
+        maxAmount:
+          type: number
+          default: 100000
+        customerIdLabel:
+          type: string
+          default: Customer ID
+        customerIdPattern:
+          type: string
+        isActive:
+          type: boolean
+          default: true
+
+    BillerPatch:
+      type: object
+      properties:
+        displayName:
+          type: string
+        description:
+          type: string
+        minAmount:
+          type: number
+        maxAmount:
+          type: number
+        isActive:
+          type: boolean
+
+    BillerResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/Biller'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    BillersListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Biller'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    CategoriesResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              category:
+                $ref: '#/components/schemas/BillerCategory'
+              count:
+                type: integer
+              displayName:
+                type: string
+
+    # Bill schemas
+    Bill:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        billerId:
+          type: string
+        billerName:
+          type: string
+        customerIdentifier:
+          type: string
+        customerName:
+          type: string
+        nickname:
+          type: string
+        amount:
+          $ref: '#/components/schemas/Money'
+        dueDate:
+          type: string
+          format: date
+        billDate:
+          type: string
+          format: date
+        billPeriod:
+          type: string
+        status:
+          $ref: '#/components/schemas/BillStatus'
+        autoPay:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            paymentMethodId:
+              type: string
+            maxAmount:
+              type: number
+            daysBefore:
+              type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    BillInput:
+      type: object
+      required:
+        - userId
+        - billerId
+        - customerIdentifier
+        - amount
+      properties:
+        userId:
+          type: string
+        billerId:
+          type: string
+        customerIdentifier:
+          type: string
+          minLength: 4
+          maxLength: 20
+        customerName:
+          type: string
+        nickname:
+          type: string
+          maxLength: 50
+        amount:
+          type: number
+          minimum: 1
+        currency:
+          type: string
+          default: INR
+        dueDate:
+          type: string
+          format: date
+        billDate:
+          type: string
+          format: date
+        billPeriod:
+          type: string
+        status:
+          $ref: '#/components/schemas/BillStatus'
+
+    BillPatch:
+      type: object
+      properties:
+        nickname:
+          type: string
+        amount:
+          type: number
+        dueDate:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/BillStatus'
+
+    BillResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/Bill'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    BillsListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Bill'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    BillsSummaryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            byStatus:
+              type: object
+              additionalProperties:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  totalAmount:
+                    type: number
+            total:
+              type: object
+              properties:
+                count:
+                  type: integer
+                totalAmount:
+                  type: number
+
+    BillFetchResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          allOf:
+            - $ref: '#/components/schemas/Bill'
+            - type: object
+              properties:
+                fetchedAt:
+                  type: string
+                  format: date-time
+                message:
+                  type: string
+
+    # Payment schemas
+    Payment:
+      type: object
+      properties:
+        id:
+          type: string
+        billId:
+          type: string
+        userId:
+          type: string
+        billerName:
+          type: string
+        amount:
+          $ref: '#/components/schemas/Money'
+        convenienceFee:
+          type: number
+        totalAmount:
+          $ref: '#/components/schemas/Money'
+        paymentMethod:
+          type: object
+          properties:
+            id:
+              type: string
+            type:
+              $ref: '#/components/schemas/PaymentMethodType'
+        status:
+          $ref: '#/components/schemas/PaymentStatus'
+        transactionId:
+          type: string
+        referenceNumber:
+          type: string
+        failure:
+          type: object
+          properties:
+            code:
+              type: string
+            reason:
+              type: string
+        processedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    PaymentInput:
+      type: object
+      required:
+        - billId
+        - amount
+      properties:
+        billId:
+          type: string
+        amount:
+          type: number
+          minimum: 1
+        currency:
+          type: string
+          default: INR
+        paymentMethodId:
+          type: string
+        paymentMethodType:
+          $ref: '#/components/schemas/PaymentMethodType'
+
+    PaymentResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/Payment'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    PaymentsListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Payment'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    PaymentStatsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            byStatus:
+              type: object
+            completed:
+              type: object
+              properties:
+                count:
+                  type: integer
+                totalAmount:
+                  type: number
+
+    RefundResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          allOf:
+            - $ref: '#/components/schemas/Payment'
+            - type: object
+              properties:
+                refund:
+                  type: object
+                  properties:
+                    amount:
+                      type: number
+                    reason:
+                      type: string
+                    processedAt:
+                      type: string
+                      format: date-time
+
+    # Payment Method schemas
+    PaymentMethod:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        type:
+          $ref: '#/components/schemas/PaymentMethodType'
+        displayName:
+          type: string
+        isDefault:
+          type: boolean
+        isActive:
+          type: boolean
+        upiId:
+          type: string
+        card:
+          type: object
+          properties:
+            lastFour:
+              type: string
+            network:
+              type: string
+            expiryMonth:
+              type: integer
+            expiryYear:
+              type: integer
+            holderName:
+              type: string
+        bank:
+          type: object
+          properties:
+            name:
+              type: string
+            accountLastFour:
+              type: string
+        wallet:
+          type: object
+          properties:
+            provider:
+              type: string
+            walletId:
+              type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PaymentMethodInput:
+      type: object
+      required:
+        - userId
+        - type
+        - displayName
+      properties:
+        userId:
+          type: string
+        type:
+          $ref: '#/components/schemas/PaymentMethodType'
+        displayName:
+          type: string
+          minLength: 2
+          maxLength: 50
+        isDefault:
+          type: boolean
+          default: false
+        upiId:
+          type: string
+          description: Required for type=upi
+        cardLastFour:
+          type: string
+          pattern: "^[0-9]{4}$"
+          description: Required for card types
+        cardNetwork:
+          type: string
+          enum: [visa, mastercard, amex, rupay, discover]
+        cardExpiryMonth:
+          type: integer
+          minimum: 1
+          maximum: 12
+        cardExpiryYear:
+          type: integer
+          minimum: 2024
+        cardHolderName:
+          type: string
+        bankName:
+          type: string
+        bankAccountLastFour:
+          type: string
+        walletProvider:
+          type: string
+        walletId:
+          type: string
+
+    PaymentMethodResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/PaymentMethod'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    PaymentMethodsListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentMethod'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    PaymentTypesResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                $ref: '#/components/schemas/PaymentMethodType'
+              displayName:
+                type: string
+              description:
+                type: string
+              convenienceFee:
+                type: number
+
+    # User schemas
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        kycStatus:
+          $ref: '#/components/schemas/KycStatus'
+        address:
+          $ref: '#/components/schemas/Address'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserInput:
+      type: object
+      required:
+        - email
+        - firstName
+      properties:
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          pattern: "^\\+?[0-9]{10,15}$"
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 50
+        lastName:
+          type: string
+          maxLength: 50
+        kycStatus:
+          $ref: '#/components/schemas/KycStatus'
+        address:
+          $ref: '#/components/schemas/Address'
+
+    UserPatch:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        kycStatus:
+          $ref: '#/components/schemas/KycStatus'
+        address:
+          $ref: '#/components/schemas/Address'
+
+    UserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/User'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    UsersListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    TransactionsListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              paymentId:
+                type: string
+              type:
+                type: string
+                enum: [payment, refund, reversal, cashback, fee]
+              amount:
+                $ref: '#/components/schemas/Money'
+              status:
+                type: string
+              description:
+                type: string
+              createdAt:
+                type: string
+                format: date-time
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    KycVerificationResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          allOf:
+            - $ref: '#/components/schemas/User'
+            - type: object
+              properties:
+                kycVerification:
+                  type: object
+                  properties:
+                    previousStatus:
+                      $ref: '#/components/schemas/KycStatus'
+                    newStatus:
+                      $ref: '#/components/schemas/KycStatus'
+                    verifiedAt:
+                      type: string
+                      format: date-time
+
+security:
+  - ApiKeyHeader: []
+  - ApiKeyQuery: []
+  - BearerAuth: []
+  - BasicAuth: []
+  - OAuth2: []

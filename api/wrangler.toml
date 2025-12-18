@@ -1,0 +1,30 @@
+name = "billpay-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# Cloudflare D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "billpay-db"
+database_id = "322d3551-db33-4d47-999a-4383d0564f92"
+
+# Environment variables
+[vars]
+API_VERSION = "v1"
+RATE_LIMIT_MAX = "100"
+RATE_LIMIT_WINDOW_SECONDS = "60"
+
+# Demo credentials (these are intentionally public for practice purposes)
+DEMO_API_KEY = "demo-api-key-123"
+DEMO_JWT_TOKEN = "demo-jwt-token-456"
+DEMO_BASIC_USER = "demo"
+DEMO_BASIC_PASS = "password123"
+DEMO_OAUTH_CLIENT_ID = "demo-client"
+DEMO_OAUTH_CLIENT_SECRET = "demo-secret-789"
+
+# CORS allowed origins (update with your GitHub Pages URL)
+ALLOWED_ORIGINS = "https://gauravkhuraana.github.io,http://localhost:3000,http://127.0.0.1:5500,*"
+
+# Scheduled trigger for weekly data reset (optional)
+# [triggers]
+# crons = ["0 0 * * 0"]  # Every Sunday at midnight UTC
