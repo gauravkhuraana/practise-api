@@ -48,7 +48,7 @@ info:
   version: 1.0.0
   contact:
     name: API Support
-    url: https://github.com/gauravkhuraana/APIAutomation
+    url: https://github.com/gauravkhuraana/APIAutomationSwagger
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT

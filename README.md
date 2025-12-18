@@ -86,8 +86,8 @@ curl -X POST \
 
 ```bash
 # Clone the repository
-git clone https://github.com/gauravkhuraana/APIAutomation.git
-cd APIAutomation/api
+git clone https://github.com/gauravkhuraana/APIAutomationSwagger.git
+cd APIAutomationSwagger/api
 
 # Install dependencies
 npm install
@@ -155,7 +155,7 @@ git push
 # 4. Save
 
 # Your docs will be available at:
-# https://gauravkhuraana.github.io/APIAutomation/
+# https://gauravkhuraana.github.io/APIAutomationSwagger/
 ```
 
 ### 3. Update OpenAPI Spec
@@ -262,7 +262,7 @@ APIAutomation/
 ```bash
 # Import the OpenAPI spec into Postman
 # File > Import > URL
-# https://gauravkhuraana.github.io/APIAutomation/openapi.yaml
+# https://gauravkhuraana.github.io/APIAutomationSwagger/openapi.yaml
 
 # Run with Newman
 newman run collection.json \
