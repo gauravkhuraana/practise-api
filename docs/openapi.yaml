@@ -903,12 +903,12 @@ paths:
               properties:
                 amount:
                   type: number
-                  description: Refund amount (default: full amount)
+                  description: "Refund amount (default: full amount)"
                 reason:
                   type: string
-                  description: Reason for refund
-            example:
-              reason: Customer requested refund
+                  description: "Reason for refund"
+              example:
+                reason: "Customer requested refund"
       responses:
         '200':
           description: Refund processed
