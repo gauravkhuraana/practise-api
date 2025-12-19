@@ -2,6 +2,136 @@
 
 A fully functional RESTful API for practicing API automation. Features real CRUD operations, data persistence, and comprehensive documentation via Swagger UI.
 
+---
+
+## 🎯 Business Flow - How to Use This API
+
+Follow this logical sequence to understand and test the complete bill payment workflow:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                           BILL PAYMENT API - BUSINESS FLOW                              │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+
+    ┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+    │   STEP 1     │     │   STEP 2     │     │   STEP 3     │     │   STEP 4     │
+    │  🔐 AUTH    │────▶│  👤 USER    │────▶│  💳 SETUP   │ ───▶│ 📋 BILLERS  │
+    │              │     │              │     │              │     │              │
+    │ Get Token/   │     │ Create User  │     │ Add Payment  │     │ Browse       │
+    │ API Key      │     │ or Use Demo  │     │ Methods      │     │ Billers      │
+    └──────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
+                                                                           │
+    ┌──────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+    ┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+    │   STEP 5     │     │   STEP 6     │     │   STEP 7     │     │   STEP 8     │
+    │  📄 BILLS   │────▶│  💰 PAYMENT │────▶│  📊 VERIFY  │────▶│  🔄 REFUND   │
+    │              │     │              │     │              │     │  (Optional)  │
+    │ Create/Fetch │     │ Process      │     │ Check Status │     │              │
+    │ Bills        │     │ Payment      │     │ & History    │     │ Cancel/Refund│
+    └──────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
+```
+
+### 📍 Step-by-Step API Flow
+
+| Step | Action | Endpoint | Description |
+|------|--------|----------|-------------|
+| 1️⃣ | **Health Check** | `GET /health` | Verify API is running (no auth needed) |
+| 2️⃣ | **Authenticate** | `POST /oauth/token` or use API Key | Get access token or use demo credentials |
+| 3️⃣ | **Get/Create User** | `GET /v1/users` or `POST /v1/users` | Use demo user `user-demo-001` or create new |
+| 4️⃣ | **Add Payment Method** | `POST /v1/payment-methods` | Register UPI/Card/Wallet for payments |
+| 5️⃣ | **Browse Billers** | `GET /v1/billers` | Find service providers (Airtel, TATA, etc.) |
+| 6️⃣ | **Create Bill** | `POST /v1/bills` | Register a bill for a biller |
+| 7️⃣ | **Process Payment** | `POST /v1/payments` | Pay the bill (~90% success rate) |
+| 8️⃣ | **Check Status** | `GET /v1/payments/{id}` | Verify payment status |
+| 9️⃣ | **Refund (Optional)** | `POST /v1/payments/{id}/refund` | Request refund for completed payment |
+
+---
+
+## 🧪 Feature Matrix - What to Test Where
+
+### 🔐 Authentication Methods
+
+| Auth Type | How to Use | Best API to Test |
+|-----------|------------|------------------|
+| **API Key (Header)** | `X-API-Key: demo-api-key-123` | Any endpoint |
+| **API Key (Query)** | `?api_key=demo-api-key-123` | `GET /v1/billers?api_key=demo-api-key-123` |
+| **Bearer Token** | `Authorization: Bearer demo-jwt-token-456` | `POST /v1/bills` |
+| **Basic Auth** | `Authorization: Basic ZGVtbzpwYXNzd29yZDEyMw==` | `GET /v1/users` |
+| **OAuth2 Client Credentials** | `POST /oauth/token` with client_id & secret | Token endpoint |
+| **OAuth2 Password Grant** | `POST /oauth/token` with username & password | Token endpoint |
+
+### 📝 HTTP Methods
+
+| Method | Where to Practice | Example |
+|--------|-------------------|---------|
+| **GET** | All list endpoints | `GET /v1/billers` |
+| **POST** | Create resources | `POST /v1/users` |
+| **PUT** | Full update | `PUT /v1/billers/{id}` |
+| **PATCH** | Partial update | `PATCH /v1/bills/{id}` |
+| **DELETE** | Remove resources | `DELETE /v1/payment-methods/{id}` |
+| **HEAD** | Check existence | `HEAD /v1/billers/{id}` |
+
+### 🔍 Query Parameters & Filtering
+
+| Feature | Where to Practice | Example |
+|---------|-------------------|---------|
+| **Pagination** | All list endpoints | `GET /v1/bills?page=2&limit=5` |
+| **Search** | Billers, Users | `GET /v1/billers?search=airtel` |
+| **Filter by Status** | Bills, Payments | `GET /v1/bills?status=pending` |
+| **Filter by Category** | Billers | `GET /v1/billers?category=telecom` |
+| **Date Range Filter** | Bills, Payments | `GET /v1/bills?due_after=2025-01-01` |
+| **Boolean Filter** | Billers, Payment Methods | `GET /v1/billers?is_active=true` |
+
+### ❌ Negative Testing Scenarios
+
+| Scenario | Endpoint | How to Trigger |
+|----------|----------|----------------|
+| **401 Unauthorized** | Any authenticated endpoint | Remove or invalidate API key |
+| **404 Not Found** | `GET /v1/billers/{id}` | Use non-existent ID: `biller-xyz-999` |
+| **400 Validation Error** | `POST /v1/bills` | Missing required fields or invalid data |
+| **409 Conflict** | `DELETE /v1/billers/{id}` | Delete biller that has associated bills |
+| **409 Duplicate** | `POST /v1/users` | Create user with existing email |
+| **429 Rate Limited** | Any endpoint | Send 100+ requests/minute |
+| **Payment Failure** | `POST /v1/payments` | ~10% of payments fail randomly |
+
+### 🎲 Special Test Scenarios
+
+| Scenario | What to Test | How |
+|----------|--------------|-----|
+| **Simulated Payment Failure** | Payment processing | Create multiple payments - ~10% will fail with `BANK_DECLINED` |
+| **Bill Amount Validation** | Business rules | Try amount < `minAmount` or > `maxAmount` of biller |
+| **Fetch Bill** | Integration simulation | `POST /v1/bills/{id}/fetch` (only for billers with `fetchBillSupported: true`) |
+| **Refund Flow** | Payment lifecycle | Pay a bill, then refund it |
+| **Cancel Payment** | Payment lifecycle | Create payment, then cancel before completion |
+| **KYC Verification** | User workflow | `POST /v1/users/{id}/verify-kyc` |
+| **Nested Resources** | User relationships | `GET /v1/users/{id}/bills`, `/payment-methods`, `/transactions` |
+
+---
+
+## 🛠️ Quick Reference - Demo Data
+
+### Pre-seeded Demo IDs
+
+```
+Users:          user-demo-001, user-demo-002, user-demo-003
+Billers:        biller-airtel-postpaid, biller-jio-prepaid, biller-tata-power
+Payment Methods: pm-upi-001, pm-card-001
+```
+
+### Biller Categories
+`telecom`, `electricity`, `water`, `gas`, `broadband`, `dth`, `insurance`, `credit_card`
+
+### Payment Method Types
+`upi`, `credit_card`, `debit_card`, `net_banking`, `wallet`
+
+### Bill/Payment Statuses
+- **Bills**: `pending`, `paid`, `overdue`, `cancelled`, `partially_paid`
+- **Payments**: `initiated`, `processing`, `completed`, `failed`, `refunded`, `cancelled`
+
+---
+
 ## 🏗️ Architecture
 
 ```

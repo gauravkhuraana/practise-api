@@ -77,6 +77,61 @@
       text-decoration: underline;
     }
     
+    .custom-header .tools-info {
+      margin: 0.5rem 0;
+      font-size: 0.95rem;
+      opacity: 0.9;
+      color: #e0f2fe;
+    }
+    
+    .custom-header .flow-link {
+      margin: 0.75rem 0;
+      font-size: 1rem;
+      background: rgba(255, 255, 255, 0.15);
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      display: inline-block;
+    }
+    
+    .custom-header .readme-link {
+      color: #fde68a;
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.2s;
+    }
+    
+    .custom-header .readme-link:hover {
+      color: #fff;
+      text-decoration: underline;
+    }
+    
+    .kofi-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 1rem;
+      padding: 10px 20px;
+      background: #ff5e5b;
+      color: white;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.95rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 14px rgba(255, 94, 91, 0.4);
+      transition: all 0.2s ease;
+    }
+    
+    .kofi-btn:hover {
+      background: #ff4542;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(255, 94, 91, 0.5);
+    }
+    
+    .kofi-icon {
+      width: 24px;
+      height: 24px;
+    }
+    
     /* Quick start cards */
     .quick-start {
       max-width: 1460px;
@@ -315,10 +370,18 @@
   <div class="custom-header">
     <h1>💳 Bill Payment API</h1>
     <p>Practice API automation with realistic bill payment endpoints</p>
+    <p class="tools-info">Use <strong>Java (RestAssured)</strong> • <strong>Python (requests/httpx)</strong> • <strong>C# (RestSharp)</strong> • <strong>Postman</strong> • <strong>Hoppscotch</strong> & more!</p>
+    <p class="flow-link">
+      📖 <a href="https://github.com/gauravkhuraana/practise-api#-business-flow---how-to-use-this-api" target="_blank" class="readme-link">Read the Business Flow Guide</a> to understand the API workflow before you start!
+    </p>
     <p class="author-info">
       Created for the community by <strong>Gaurav Khurana</strong> • 
-      <a href="https://gauravkhurana.in/feedback/" target="_blank" class="feedback-link">Connect & Share Feedback</a>
+      <a href="https://gauravkhurana.in/feedback/" target="_blank" class="feedback-link">Connect | Share Feedback</a>
     </p>
+    <a href="https://ko-fi.com/gauravkhurana" target="_blank" class="kofi-btn">
+      <img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi" class="kofi-icon">
+      Buy Me a Coffee
+    </a>
   </div>
   
   <!-- Quick Start Cards -->
@@ -352,8 +415,12 @@
   <div class="custom-footer">
     <p>
       Built for API automation practice • 
-      <a href="https://github.com/gauravkhuraana/APIAutomationSwagger" target="_blank">GitHub Repository</a> • 
+      <a href="https://github.com/gauravkhuraana/practise-api" target="_blank">GitHub Repository</a> • 
       Powered by Cloudflare Workers
+    </p>
+    <p>
+      <a href="https://gauravkhurana.in" target="_blank">gauravkhurana.in</a> • 
+      <a href="https://gauravkhurana.in/connect" target="_blank">Let's Connect!</a>
     </p>
   </div>
   
