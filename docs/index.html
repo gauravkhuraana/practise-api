@@ -118,23 +118,40 @@
 
     .custom-header .ui-link-banner {
       background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-      padding: 12px 20px;
-      border-radius: 8px;
-      margin: 1rem auto;
-      max-width: 700px;
-      font-size: 1.05rem;
-      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+      padding: 16px 24px;
+      border-radius: 12px;
+      margin: 1.25rem auto;
+      max-width: 600px;
+      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
     }
 
     .custom-header .practice-ui-link-bold {
-      color: #ffffff;
+      display: inline-block;
+      background: #ffffff;
+      color: #059669;
       text-decoration: none;
       font-weight: 800;
-      font-size: 1.1rem;
+      font-size: 1.15rem;
+      padding: 10px 28px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      transition: all 0.2s;
     }
 
     .custom-header .practice-ui-link-bold:hover {
-      text-decoration: underline;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      text-decoration: none;
+    }
+
+    .custom-header .ui-link-desc {
+      color: rgba(255, 255, 255, 0.95);
+      font-size: 0.9rem;
+      text-align: center;
     }
     
     .kofi-btn {
@@ -379,7 +396,86 @@
     .custom-footer a:hover {
       text-decoration: underline;
     }
-    
+
+    /* Schema Explorer */
+    .schema-explorer {
+      max-width: 1460px;
+      margin: 0 auto 2rem;
+      padding: 0 1rem;
+    }
+
+    .schema-explorer h3 {
+      color: #1e293b;
+      margin: 0 0 0.5rem 0;
+      font-size: 1.25rem;
+    }
+
+    .schema-explorer .muted {
+      color: #64748b;
+      margin: 0 0 1rem 0;
+      font-size: 0.9rem;
+    }
+
+    .schema-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .schema-card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .schema-card:hover {
+      border-color: var(--primary-color);
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+    }
+
+    .schema-name {
+      font-weight: 600;
+      color: #334155;
+    }
+
+    .schema-copy-btn {
+      padding: 0.35rem 0.7rem;
+      font-size: 0.7rem;
+      margin: 0;
+    }
+
+    .schema-actions {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .btn-download {
+      display: inline-block;
+      background: #f1f5f9;
+      color: #334155;
+      padding: 0.6rem 1.2rem;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+      border: 1px solid #e2e8f0;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-download:hover {
+      background: #e2e8f0;
+      border-color: #cbd5e1;
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
       .custom-header {
@@ -394,6 +490,10 @@
         margin: -1rem auto 1rem;
         grid-template-columns: 1fr;
       }
+
+      .schema-grid {
+        grid-template-columns: 1fr 1fr;
+      }
     }
   </style>
 </head>
@@ -403,9 +503,10 @@
     <h1>💳 Bill Payment API</h1>
     <p>Practice API automation with realistic bill payment endpoints</p>
     <p class="tools-info">Use <strong>Java (RestAssured)</strong> • <strong>Python (requests/httpx)</strong> • <strong>C# (RestSharp)</strong> • <strong>Postman</strong> • <strong>Hoppscotch</strong> & more!</p>
-    <p class="ui-link-banner">
-      <strong>🚀 <a href="./ui/index.html" class="practice-ui-link-bold">Launch the Practice UI</a></strong> — Interactive dashboard for API testing, file uploads, cookie auth & XML responses!
-    </p>
+    <div class="ui-link-banner">
+      <a href="./ui/index.html" class="practice-ui-link-bold">🚀 Launch the Practice UI</a>
+      <span class="ui-link-desc">Interactive web app for <strong>UI + API testing</strong> — includes practice scenarios, form elements, file uploads & more!</span>
+    </div>
     <p class="flow-link">
       📖 <a href="https://github.com/gauravkhuraana/practise-api#-business-flow---how-to-use-this-api" target="_blank" class="readme-link">Read the Business Flow Guide</a> to understand the API workflow before you start!
     </p>
@@ -440,6 +541,50 @@
       <code>demo:password123</code>
       <p><span class="badge badge-yellow">Base64</span> ZGVtbzpwYXNzd29yZDEyMw==</p>
       <button class="copy-btn" onclick="copyToClipboard('ZGVtbzpwYXNzd29yZDEyMw==', this)">Copy Base64</button>
+    </div>
+  </div>
+
+  <!-- Schema Explorer -->
+  <div class="schema-explorer">
+    <h3>📋 JSON Schemas (Copy for Postman/Validation)</h3>
+    <p class="muted">Click any schema to copy the JSON - ready for Postman tests, JSON Schema validation, or code generation!</p>
+    <div class="schema-grid">
+      <div class="schema-card" data-schema="User">
+        <span class="schema-name">👤 User</span>
+        <button class="copy-btn schema-copy-btn">Copy JSON</button>
+      </div>
+      <div class="schema-card" data-schema="Bill">
+        <span class="schema-name">📄 Bill</span>
+        <button class="copy-btn schema-copy-btn">Copy JSON</button>
+      </div>
+      <div class="schema-card" data-schema="Payment">
+        <span class="schema-name">💸 Payment</span>
+        <button class="copy-btn schema-copy-btn">Copy JSON</button>
+      </div>
+      <div class="schema-card" data-schema="Biller">
+        <span class="schema-name">🏢 Biller</span>
+        <button class="copy-btn schema-copy-btn">Copy JSON</button>
+      </div>
+      <div class="schema-card" data-schema="PaymentMethod">
+        <span class="schema-name">💳 PaymentMethod</span>
+        <button class="copy-btn schema-copy-btn">Copy JSON</button>
+      </div>
+      <div class="schema-card" data-schema="Address">
+        <span class="schema-name">📍 Address</span>
+        <button class="copy-btn schema-copy-btn">Copy JSON</button>
+      </div>
+      <div class="schema-card" data-schema="UploadedFile">
+        <span class="schema-name">📁 UploadedFile</span>
+        <button class="copy-btn schema-copy-btn">Copy JSON</button>
+      </div>
+      <div class="schema-card" data-schema="Error">
+        <span class="schema-name">⚠️ Error</span>
+        <button class="copy-btn schema-copy-btn">Copy JSON</button>
+      </div>
+    </div>
+    <div class="schema-actions">
+      <a href="./openapi.yaml" download class="btn-download">📥 Download Full OpenAPI Spec</a>
+      <button class="btn-download" onclick="copyAllSchemas()">📋 Copy All Schemas</button>
     </div>
   </div>
   
@@ -528,6 +673,159 @@
         }, 2000);
       });
     }
+
+    // JSON Schemas for copy functionality
+    const schemas = {
+      User: {
+        type: "object",
+        properties: {
+          id: { type: "string", example: "usr_abc123" },
+          email: { type: "string", format: "email", example: "john@example.com" },
+          phone: { type: "string", example: "+1234567890" },
+          firstName: { type: "string", example: "John" },
+          lastName: { type: "string", example: "Doe" },
+          kycStatus: { type: "string", enum: ["pending", "verified", "rejected"], example: "verified" },
+          address: { "$ref": "#/components/schemas/Address" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" }
+        },
+        required: ["id", "email", "firstName", "lastName", "kycStatus"]
+      },
+      Bill: {
+        type: "object",
+        properties: {
+          id: { type: "string", example: "bill_xyz789" },
+          userId: { type: "string", example: "usr_abc123" },
+          billerId: { type: "string", example: "blr_elec001" },
+          accountNumber: { type: "string", example: "ACC123456" },
+          amount: { type: "number", example: 125.50 },
+          currency: { type: "string", example: "USD" },
+          dueDate: { type: "string", format: "date", example: "2024-02-15" },
+          status: { type: "string", enum: ["pending", "paid", "overdue", "cancelled"], example: "pending" },
+          description: { type: "string", example: "Monthly electricity bill" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" }
+        },
+        required: ["id", "userId", "billerId", "accountNumber", "amount", "status"]
+      },
+      Payment: {
+        type: "object",
+        properties: {
+          id: { type: "string", example: "pay_def456" },
+          billId: { type: "string", example: "bill_xyz789" },
+          userId: { type: "string", example: "usr_abc123" },
+          amount: { type: "number", example: 125.50 },
+          currency: { type: "string", example: "USD" },
+          paymentMethodId: { type: "string", example: "pm_card001" },
+          status: { type: "string", enum: ["pending", "processing", "completed", "failed", "refunded"], example: "completed" },
+          transactionRef: { type: "string", example: "TXN20240115ABC" },
+          paidAt: { type: "string", format: "date-time" },
+          createdAt: { type: "string", format: "date-time" }
+        },
+        required: ["id", "billId", "userId", "amount", "status"]
+      },
+      Biller: {
+        type: "object",
+        properties: {
+          id: { type: "string", example: "blr_elec001" },
+          name: { type: "string", example: "City Electric Company" },
+          category: { type: "string", enum: ["electricity", "water", "gas", "internet", "phone", "insurance", "other"], example: "electricity" },
+          logoUrl: { type: "string", format: "uri", example: "https://example.com/logo.png" },
+          supportedPaymentMethods: { type: "array", items: { type: "string" }, example: ["card", "bank_transfer"] },
+          active: { type: "boolean", example: true },
+          createdAt: { type: "string", format: "date-time" }
+        },
+        required: ["id", "name", "category", "active"]
+      },
+      PaymentMethod: {
+        type: "object",
+        properties: {
+          id: { type: "string", example: "pm_card001" },
+          userId: { type: "string", example: "usr_abc123" },
+          type: { type: "string", enum: ["card", "bank_account", "wallet"], example: "card" },
+          last4: { type: "string", example: "4242" },
+          brand: { type: "string", example: "visa" },
+          expiryMonth: { type: "integer", example: 12 },
+          expiryYear: { type: "integer", example: 2025 },
+          isDefault: { type: "boolean", example: true },
+          createdAt: { type: "string", format: "date-time" }
+        },
+        required: ["id", "userId", "type"]
+      },
+      Address: {
+        type: "object",
+        properties: {
+          street: { type: "string", example: "123 Main St" },
+          city: { type: "string", example: "New York" },
+          state: { type: "string", example: "NY" },
+          postalCode: { type: "string", example: "10001" },
+          country: { type: "string", example: "US" }
+        }
+      },
+      UploadedFile: {
+        type: "object",
+        properties: {
+          id: { type: "string", example: "file_abc123" },
+          name: { type: "string", example: "document.pdf" },
+          size: { type: "integer", example: 102400 },
+          mimeType: { type: "string", example: "application/pdf" },
+          description: { type: "string", example: "ID verification document" },
+          uploadedAt: { type: "string", format: "date-time" }
+        },
+        required: ["id", "name", "size", "mimeType"]
+      },
+      Error: {
+        type: "object",
+        properties: {
+          error: { type: "string", example: "Validation failed" },
+          message: { type: "string", example: "Email is required" },
+          code: { type: "string", example: "VALIDATION_ERROR" },
+          details: { type: "object", additionalProperties: true }
+        },
+        required: ["error"]
+      }
+    };
+
+    // Copy schema to clipboard
+    function copySchema(schemaName, button) {
+      const schema = schemas[schemaName];
+      if (!schema) {
+        alert('Schema not found: ' + schemaName);
+        return;
+      }
+      const jsonText = JSON.stringify(schema, null, 2);
+      copyToClipboard(jsonText, button);
+    }
+
+    // Copy all schemas
+    function copyAllSchemas() {
+      const allSchemas = { components: { schemas: schemas } };
+      const jsonText = JSON.stringify(allSchemas, null, 2);
+      navigator.clipboard.writeText(jsonText).then(() => {
+        alert('✅ All schemas copied to clipboard!');
+      }).catch(err => {
+        console.error('Failed to copy:', err);
+      });
+    }
+
+    // Attach schema copy handlers
+    document.querySelectorAll('.schema-card').forEach(card => {
+      const schemaName = card.dataset.schema;
+      const btn = card.querySelector('.schema-copy-btn');
+      
+      // Click on card copies schema
+      card.addEventListener('click', (e) => {
+        if (e.target !== btn) {
+          copySchema(schemaName, btn);
+        }
+      });
+      
+      // Button also copies
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        copySchema(schemaName, btn);
+      });
+    });
   </script>
 </body>
 </html>
