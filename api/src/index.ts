@@ -16,6 +16,7 @@ import { paymentMethodsRouter } from './routes/payment-methods';
 import { usersRouter } from './routes/users';
 import { healthRouter } from './routes/health';
 import { authRouter } from './routes/auth';
+import { filesRouter } from './routes/files';
 
 // Create main router
 const router = Router();
@@ -64,6 +65,7 @@ router.all('/v1/bills*', billsRouter.handle);
 router.all('/v1/payments*', paymentsRouter.handle);
 router.all('/v1/payment-methods*', paymentMethodsRouter.handle);
 router.all('/v1/users*', usersRouter.handle);
+router.all('/v1/files*', filesRouter.handle);
 
 // ============================================
 // Root endpoint
@@ -85,16 +87,25 @@ router.get('/', (request: IRequest, env: Env) => {
         paymentMethods: '/v1/payment-methods',
         users: '/v1/users',
         auth: '/v1/auth',
+        files: '/v1/files',
       },
       authentication: {
         apiKey: 'X-API-Key header or api_key query parameter',
         bearer: 'Authorization: Bearer <token>',
         basic: 'Authorization: Basic <base64>',
+        cookie: 'Cookie: session_id=<session-token>',
       },
       demoCredentials: {
         apiKey: 'demo-api-key-123',
         bearerToken: 'demo-jwt-token-456',
         basicAuth: 'demo:password123 (base64: ZGVtbzpwYXNzd29yZDEyMw==)',
+        sessionCookie: 'session_id=demo-session-abc123',
+      },
+      contentTypes: {
+        json: 'application/json (default)',
+        xml: 'application/xml (set Accept header)',
+        formUrlEncoded: 'application/x-www-form-urlencoded (OAuth token)',
+        multipartFormData: 'multipart/form-data (file uploads)',
       },
     },
     meta: {

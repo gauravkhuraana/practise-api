@@ -1,8 +1,11 @@
 // Authentication Middleware
-// Supports: API Key (header/query), Bearer Token, Basic Auth, OAuth2
+// Supports: API Key (header/query), Bearer Token, Basic Auth, OAuth2, Cookie
 
 import { Env, AuthContext, RequestContext } from '../types';
 import { errorResponse, jsonResponse, generateId } from '../utils';
+
+// Demo session cookie value for testing
+const DEMO_SESSION_COOKIE = 'demo-session-abc123';
 
 export interface AuthResult {
   success: boolean;
@@ -11,14 +14,32 @@ export interface AuthResult {
 }
 
 /**
+ * Parse cookies from Cookie header
+ */
+function parseCookies(cookieHeader: string | null): Record<string, string> {
+  const cookies: Record<string, string> = {};
+  if (!cookieHeader) return cookies;
+  
+  cookieHeader.split(';').forEach(cookie => {
+    const [name, ...valueParts] = cookie.trim().split('=');
+    if (name) {
+      cookies[name.trim()] = valueParts.join('=').trim();
+    }
+  });
+  
+  return cookies;
+}
+
+/**
  * Authenticate request using multiple methods
- * Order of precedence: Bearer Token > API Key Header > API Key Query > Basic Auth
+ * Order of precedence: Bearer Token > API Key Header > API Key Query > Basic Auth > Cookie
  */
 export function authenticateRequest(request: Request, env: Env): AuthResult {
   const authHeader = request.headers.get('Authorization');
   const apiKeyHeader = request.headers.get('X-API-Key');
   const url = new URL(request.url);
   const apiKeyQuery = url.searchParams.get('api_key');
+  const cookieHeader = request.headers.get('Cookie');
 
   // 1. Check Bearer Token (JWT)
   if (authHeader?.startsWith('Bearer ')) {
@@ -42,12 +63,60 @@ export function authenticateRequest(request: Request, env: Env): AuthResult {
     return validateApiKey(apiKeyQuery, env, 'query');
   }
 
+  // 5. Check Cookie-based session
+  if (cookieHeader) {
+    const result = validateSessionCookie(cookieHeader, env);
+    if (result.success) {
+      return result;
+    }
+  }
+
   // No authentication provided
   return {
     success: false,
     error: {
       code: 'MISSING_AUTHENTICATION',
-      message: 'Authentication required. Provide API Key, Bearer token, or Basic auth credentials.',
+      message: 'Authentication required. Provide API Key, Bearer token, Basic auth credentials, or session cookie.',
+    },
+  };
+}
+
+/**
+ * Validate session cookie
+ */
+function validateSessionCookie(cookieHeader: string, env: Env): AuthResult {
+  const cookies = parseCookies(cookieHeader);
+  const sessionId = cookies['session_id'] || cookies['sessionId'] || cookies['SESSIONID'];
+  
+  // Accept demo session cookie
+  if (sessionId === DEMO_SESSION_COOKIE || sessionId === env.DEMO_API_KEY) {
+    return {
+      success: true,
+      context: {
+        type: 'cookie',
+        identifier: `session_${sessionId.slice(0, 8)}...`,
+        scopes: ['read:all', 'write:all'],
+      },
+    };
+  }
+  
+  // Accept any well-formatted session cookie for demo purposes
+  if (sessionId && /^[a-zA-Z0-9_-]{16,64}$/.test(sessionId)) {
+    return {
+      success: true,
+      context: {
+        type: 'cookie',
+        identifier: `session_${sessionId.slice(0, 8)}...`,
+        scopes: ['read:all', 'write:all'],
+      },
+    };
+  }
+  
+  return {
+    success: false,
+    error: {
+      code: 'INVALID_SESSION',
+      message: 'Invalid or expired session cookie.',
     },
   };
 }

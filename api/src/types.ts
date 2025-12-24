@@ -22,9 +22,29 @@ export interface RequestContext {
 }
 
 export interface AuthContext {
-  type: 'api_key' | 'bearer' | 'basic' | 'oauth2' | 'none';
+  type: 'api_key' | 'bearer' | 'basic' | 'oauth2' | 'cookie' | 'none';
   identifier?: string;
   scopes?: string[];
+}
+
+// ============================================
+// File Upload Types
+// ============================================
+
+export interface UploadedFile {
+  id: string;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  uploadedAt: string;
+  userId?: string;
+  metadata?: Record<string, string>;
+}
+
+export interface FileUploadResult {
+  file: UploadedFile;
+  url: string;
 }
 
 // ============================================

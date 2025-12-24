@@ -285,3 +285,171 @@ export function optionsResponse(allowedMethods: string[], headers: Record<string
     },
   });
 }
+
+// ============================================
+// XML Support Utilities
+// ============================================
+
+/**
+ * Simple XML to JSON parser (handles basic XML structures)
+ */
+export function parseXml(xml: string): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  
+  // Remove XML declaration if present
+  xml = xml.replace(/<\?xml[^?]*\?>/g, '').trim();
+  
+  // Get root element
+  const rootMatch = xml.match(/^<(\w+)[^>]*>([\s\S]*)<\/\1>$/);
+  if (!rootMatch) {
+    throw new Error('Invalid XML format');
+  }
+  
+  const [, rootTag, content] = rootMatch;
+  result[rootTag] = parseXmlContent(content);
+  
+  return result;
+}
+
+function parseXmlContent(content: string): unknown {
+  content = content.trim();
+  
+  // Check if it's a simple text value
+  if (!content.includes('<')) {
+    // Try to parse as number or boolean
+    if (content === 'true') return true;
+    if (content === 'false') return false;
+    if (content !== '' && !isNaN(Number(content))) return Number(content);
+    return content;
+  }
+  
+  const result: Record<string, unknown> = {};
+  
+  // Match all child elements
+  const elementRegex = /<(\w+)([^>]*)>([\s\S]*?)<\/\1>|<(\w+)([^/>]*)\s*\/>/g;
+  let match;
+  
+  while ((match = elementRegex.exec(content)) !== null) {
+    const tagName = match[1] || match[4];
+    const innerContent = match[3] || '';
+    
+    const value = parseXmlContent(innerContent);
+    
+    // Handle arrays (multiple elements with same name)
+    if (result[tagName] !== undefined) {
+      if (!Array.isArray(result[tagName])) {
+        result[tagName] = [result[tagName]];
+      }
+      (result[tagName] as unknown[]).push(value);
+    } else {
+      result[tagName] = value;
+    }
+  }
+  
+  return Object.keys(result).length > 0 ? result : content;
+}
+
+/**
+ * Convert JSON object to XML string
+ */
+export function jsonToXml(obj: unknown, rootName: string = 'root'): string {
+  let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+  xml += objectToXml(obj, rootName);
+  return xml;
+}
+
+function objectToXml(obj: unknown, tagName: string): string {
+  if (obj === null || obj === undefined) {
+    return `<${tagName}/>`;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(item => objectToXml(item, tagName)).join('\n');
+  }
+  
+  if (typeof obj === 'object') {
+    const entries = Object.entries(obj as Record<string, unknown>);
+    if (entries.length === 0) {
+      return `<${tagName}/>`;
+    }
+    
+    const content = entries.map(([key, value]) => objectToXml(value, key)).join('\n');
+    return `<${tagName}>\n${content}\n</${tagName}>`;
+  }
+  
+  // Escape special XML characters
+  const escaped = String(obj)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+  
+  return `<${tagName}>${escaped}</${tagName}>`;
+}
+
+/**
+ * Create HTTP response with XML and appropriate headers
+ */
+export function xmlResponse<T>(
+  data: T,
+  rootName: string = 'response',
+  status: number = 200,
+  headers: Record<string, string> = {}
+): Response {
+  return new Response(jsonToXml(data, rootName), {
+    status,
+    headers: {
+      'Content-Type': 'application/xml',
+      ...headers,
+    },
+  });
+}
+
+/**
+ * Detect if request prefers XML response
+ */
+export function prefersXml(request: Request): boolean {
+  const accept = request.headers.get('Accept') || '';
+  const contentType = request.headers.get('Content-Type') || '';
+  
+  // Check Accept header for XML preference
+  if (accept.includes('application/xml') || accept.includes('text/xml')) {
+    // Check if JSON is also present and has higher priority
+    const xmlIndex = Math.min(
+      accept.indexOf('application/xml'),
+      accept.indexOf('text/xml') !== -1 ? accept.indexOf('text/xml') : Infinity
+    );
+    const jsonIndex = accept.indexOf('application/json');
+    
+    if (jsonIndex === -1 || xmlIndex < jsonIndex) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Check if request body is XML
+ */
+export function isXmlRequest(request: Request): boolean {
+  const contentType = request.headers.get('Content-Type') || '';
+  return contentType.includes('application/xml') || contentType.includes('text/xml');
+}
+
+/**
+ * Create response in format matching Accept header (JSON or XML)
+ */
+export function formatResponse<T>(
+  request: Request,
+  data: ApiResponse<T>,
+  rootName: string = 'response',
+  status: number = 200,
+  headers: Record<string, string> = {}
+): Response {
+  if (prefersXml(request)) {
+    return xmlResponse(data, rootName, status, headers);
+  }
+  return jsonResponse(data, status, headers);
+}

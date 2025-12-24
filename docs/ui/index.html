@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BillPay – Practice App</title>
+    <meta name="description" content="Practice UI for Bill Payment API (automation-friendly SPA)" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E💳%3C/text%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <!-- Top bar -->
+    <header class="topbar">
+      <a href="#/" class="topbar__brand">
+        <span class="brand__icon">💳</span>
+        <span class="brand__title">BillPay</span>
+      </a>
+
+      <div class="topbar__user" id="userBadge">
+        <span class="user__name" id="userName">Not logged in</span>
+        <span class="user__status badge" id="userKyc">—</span>
+      </div>
+
+      <div class="topbar__actions">
+        <button id="themeToggle" class="btn btn--icon" type="button" aria-pressed="false" title="Toggle dark mode">🌙</button>
+        <a href="../index.html" class="btn btn--ghost" title="API Docs">Swagger</a>
+      </div>
+    </header>
+
+    <div class="app-shell">
+      <!-- Sidebar navigation -->
+      <nav class="sidebar" aria-label="Main navigation">
+        <div class="sidebar__section">
+          <div class="sidebar__heading">Get Started</div>
+          <a class="sidebar__link" href="#/scenarios" data-route="/scenarios">🎯 Scenarios</a>
+        </div>
+
+        <div class="sidebar__section">
+          <div class="sidebar__heading">Menu</div>
+          <a class="sidebar__link" href="#/" data-route="/">🏠 Dashboard</a>
+          <a class="sidebar__link" href="#/bills" data-route="/bills">📄 My Bills</a>
+          <a class="sidebar__link" href="#/payments" data-route="/payments">💸 Payments</a>
+          <a class="sidebar__link" href="#/payment-methods" data-route="/payment-methods">💳 Payment Methods</a>
+        </div>
+
+        <div class="sidebar__section">
+          <div class="sidebar__heading">Admin</div>
+          <a class="sidebar__link" href="#/users" data-route="/users">👤 Users</a>
+          <a class="sidebar__link" href="#/billers" data-route="/billers">🏢 Billers</a>
+        </div>
+
+        <div class="sidebar__section">
+          <div class="sidebar__heading">Account</div>
+          <a class="sidebar__link" href="#/settings" data-route="/settings">⚙️ Settings</a>
+          <a class="sidebar__link" href="#/practice" data-route="/practice">🧪 Practice Components</a>
+        </div>
+
+        <div class="sidebar__footer">
+          <div class="muted" id="rateLimitHint"></div>
+        </div>
+      </nav>
+
+      <!-- Main content -->
+      <main id="main" class="main">
+        <div id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+        <div id="routeOutlet" class="page"></div>
+      </main>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

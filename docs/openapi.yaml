@@ -5,8 +5,8 @@ info:
     A comprehensive RESTful API for bill payment operations, designed for API automation practice.
 
     ## Overview
-    This API provides endpoints to manage billers, bills, payments, payment methods, and users.
-    It supports various authentication methods and includes realistic business logic.
+    This API provides endpoints to manage billers, bills, payments, payment methods, users, and file uploads.
+    It supports various authentication methods, content types, and includes realistic business logic.
 
     ## Authentication
     The API supports multiple authentication methods. All endpoints except `/health` require authentication.
@@ -26,6 +26,12 @@ info:
     ```
     (Credentials: `demo:password123`)
 
+    ### Cookie-Based Session (NEW)
+    ```
+    Cookie: session_id=demo-session-abc123
+    ```
+    Session cookies are validated for authentication. Use the demo session token above for testing.
+
     ### OAuth2 Client Credentials
     ```bash
     POST /oauth/token
@@ -33,6 +39,25 @@ info:
 
     grant_type=client_credentials&client_id=demo-client&client_secret=demo-secret-789
     ```
+
+    ## Content Types
+    The API supports multiple content types:
+
+    ### JSON (Default)
+    - Request: `Content-Type: application/json`
+    - Response: `Accept: application/json`
+
+    ### XML (NEW)
+    - Request: `Content-Type: application/xml` or `text/xml`
+    - Response: Set `Accept: application/xml` to receive XML responses
+    - Most endpoints support both JSON and XML
+
+    ### Form URL Encoded
+    - Used for OAuth token requests: `Content-Type: application/x-www-form-urlencoded`
+
+    ### Multipart Form Data (NEW)
+    - Used for file uploads: `Content-Type: multipart/form-data`
+    - See `/v1/files/upload` endpoints
 
     ## Rate Limiting
     - **Limit**: 100 requests per minute per IP
@@ -74,6 +99,8 @@ tags:
     description: User payment methods (UPI, cards, etc.)
   - name: Users
     description: User management
+  - name: Files
+    description: File upload and management (multipart/form-data)
 
 paths:
   # ============================================
@@ -1322,6 +1349,258 @@ paths:
               schema:
                 $ref: '#/components/schemas/KycVerificationResponse'
 
+  # ============================================
+  # FILES (multipart/form-data uploads)
+  # ============================================
+  /v1/files:
+    get:
+      tags: [Files]
+      summary: List uploaded files
+      description: Get a paginated list of uploaded files with optional filters
+      operationId: listFiles
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: mime_type
+          in: query
+          description: Filter by MIME type (partial match)
+          schema:
+            type: string
+            example: image/
+        - name: user_id
+          in: query
+          description: Filter by user ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of uploaded files
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilesListResponse'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/FilesListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/files/upload:
+    post:
+      tags: [Files]
+      summary: Upload a single file
+      description: |
+        Upload a file using multipart/form-data encoding.
+
+        **Supported file types:**
+        - Images: JPEG, PNG, GIF, WebP, SVG
+        - Documents: PDF, Word (.doc, .docx), Excel (.xls, .xlsx)
+        - Text: Plain text, CSV, JSON, XML
+
+        **Limits:**
+        - Maximum file size: 10MB
+        - Use `file` as the form field name
+
+        **Form fields:**
+        - `file` (required): The file to upload
+        - `description` (optional): File description
+        - `category` (optional): File category
+      operationId: uploadFile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The file to upload
+                description:
+                  type: string
+                  description: Optional file description
+                  example: My document
+                category:
+                  type: string
+                  description: Optional file category
+                  example: documents
+            encoding:
+              file:
+                contentType: application/octet-stream
+      responses:
+        '201':
+          description: File uploaded successfully
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URL of the uploaded file
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileUploadResponse'
+              example:
+                success: true
+                data:
+                  file:
+                    id: file-abc123
+                    filename: file-abc123-document.pdf
+                    originalName: document.pdf
+                    mimeType: application/pdf
+                    size: 102400
+                    uploadedAt: "2025-12-18T10:30:00.000Z"
+                  url: /v1/files/file-abc123
+                  checksum:
+                    algorithm: SHA-256
+                    value: "abc123..."
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/FileUploadResponse'
+        '400':
+          description: Invalid request (missing file, file too large, or invalid type)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingFile:
+                  summary: No file provided
+                  value:
+                    success: false
+                    error:
+                      code: MISSING_FILE
+                      message: 'No file provided in the request. Use "file" field name.'
+                fileTooLarge:
+                  summary: File exceeds size limit
+                  value:
+                    success: false
+                    error:
+                      code: FILE_TOO_LARGE
+                      message: File size exceeds maximum limit of 10MB
+                invalidType:
+                  summary: File type not allowed
+                  value:
+                    success: false
+                    error:
+                      code: INVALID_FILE_TYPE
+                      message: 'File type "application/exe" is not allowed'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/files/upload-multiple:
+    post:
+      tags: [Files]
+      summary: Upload multiple files
+      description: |
+        Upload multiple files at once using multipart/form-data.
+
+        **Limits:**
+        - Maximum 5 files per request
+        - Maximum 10MB per file
+        - Use any field names (e.g., `files`, `file1`, `file2`)
+      operationId: uploadMultipleFiles
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: Array of files to upload
+      responses:
+        '201':
+          description: Files uploaded (partial success possible)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MultiFileUploadResponse'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/MultiFileUploadResponse'
+        '400':
+          description: No files provided or too many files
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/files/{id}:
+    get:
+      tags: [Files]
+      summary: Get file metadata
+      description: Get metadata for a specific uploaded file
+      operationId: getFile
+      parameters:
+        - $ref: '#/components/parameters/FileId'
+      responses:
+        '200':
+          description: File metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileResponse'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/FileResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Files]
+      summary: Delete a file
+      description: Delete an uploaded file by ID
+      operationId: deleteFile
+      parameters:
+        - $ref: '#/components/parameters/FileId'
+      responses:
+        '200':
+          description: File deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    head:
+      tags: [Files]
+      summary: Check if file exists
+      description: Returns headers with file info if exists, 404 if not
+      operationId: checkFileExists
+      parameters:
+        - $ref: '#/components/parameters/FileId'
+      responses:
+        '200':
+          description: File exists
+          headers:
+            Content-Type:
+              schema:
+                type: string
+              description: MIME type of the file
+            Content-Length:
+              schema:
+                type: integer
+              description: Size of the file in bytes
+            X-File-Name:
+              schema:
+                type: string
+              description: Original filename
+        '404':
+          description: File not found
+
 # ============================================
 # COMPONENTS
 # ============================================
@@ -1346,6 +1625,13 @@ components:
       type: http
       scheme: basic
       description: Basic authentication (username:password)
+    CookieAuth:
+      type: apiKey
+      in: cookie
+      name: session_id
+      description: |
+        Session cookie authentication. 
+        Demo value: `session_id=demo-session-abc123`
     OAuth2:
       type: oauth2
       flows:
@@ -1418,6 +1704,14 @@ components:
       schema:
         type: string
         example: user-demo-001
+    FileId:
+      name: id
+      in: path
+      required: true
+      description: File ID
+      schema:
+        type: string
+        example: file-abc123
 
   responses:
     Unauthorized:
@@ -2414,9 +2708,130 @@ components:
                       type: string
                       format: date-time
 
+    # File Upload Schemas
+    UploadedFile:
+      type: object
+      properties:
+        id:
+          type: string
+          example: file-abc123
+        filename:
+          type: string
+          description: Generated filename
+          example: file-abc123-document.pdf
+        originalName:
+          type: string
+          description: Original uploaded filename
+          example: document.pdf
+        mimeType:
+          type: string
+          example: application/pdf
+        size:
+          type: integer
+          description: File size in bytes
+          example: 102400
+        uploadedAt:
+          type: string
+          format: date-time
+        userId:
+          type: string
+          description: ID of user who uploaded the file
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+          description: Optional metadata (description, category, etc.)
+
+    FileUploadResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            file:
+              $ref: '#/components/schemas/UploadedFile'
+            url:
+              type: string
+              description: URL to access the file
+              example: /v1/files/file-abc123
+            checksum:
+              type: object
+              properties:
+                algorithm:
+                  type: string
+                  example: SHA-256
+                value:
+                  type: string
+                  description: Hex-encoded hash of file content
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    MultiFileUploadResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            uploaded:
+              type: array
+              items:
+                type: object
+                properties:
+                  file:
+                    $ref: '#/components/schemas/UploadedFile'
+                  url:
+                    type: string
+            failed:
+              type: array
+              items:
+                type: object
+                properties:
+                  filename:
+                    type: string
+                  error:
+                    type: string
+            summary:
+              type: object
+              properties:
+                total:
+                  type: integer
+                successful:
+                  type: integer
+                failed:
+                  type: integer
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    FileResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/UploadedFile'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    FilesListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/UploadedFile'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
 security:
   - ApiKeyHeader: []
   - ApiKeyQuery: []
   - BearerAuth: []
   - BasicAuth: []
+  - CookieAuth: []
   - OAuth2: []
