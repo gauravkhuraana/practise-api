@@ -25,7 +25,7 @@ type PaymentStatus = 'initiated' | 'processing' | 'completed' | 'failed' | 'canc
 paymentsRouter.get('/', async (request: IRequest, env: Env, ctx?: RequestContext) => {
   const requestId = ctx?.requestId || generateId();
   const url = new URL(request.url);
-  const { page, limit, offset } = parsePaginationParams(url);
+  const { page, limit, offset, mode } = parsePaginationParams(url);
 
   const userId = url.searchParams.get('user_id');
   const billId = url.searchParams.get('bill_id');
@@ -89,7 +89,11 @@ paymentsRouter.get('/', async (request: IRequest, env: Env, ctx?: RequestContext
       .all();
 
     const data = (payments.results || []).map((row) => formatPayment(row));
-    const pagination = calculatePagination(page, limit, total);
+    const lastItem = data[data.length - 1];
+    const pagination = calculatePagination(page, limit, total, {
+      includeCursors: mode === 'cursor' || url.searchParams.has('include_cursors'),
+      lastItemId: lastItem?.id,
+    });
 
     return jsonResponse(
       paginatedResponse(data, pagination, { requestId, version: env.API_VERSION }),

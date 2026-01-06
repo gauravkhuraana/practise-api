@@ -847,7 +847,7 @@ export function renderPractice(outlet, { toast }) {
   
   // Get settings for API URL
   const getSettings = () => JSON.parse(localStorage.getItem('practiceApiSettings') || '{}');
-  const apiBase = getSettings().apiUrl || 'https://practise-api.gkumarau.workers.dev';
+  const apiBase = getSettings().apiUrl || 'https://billpay-api.gauravkhurana-practice-api.workers.dev';
 
   // Helper to get auth headers
   function getAuthHeaders(overrideAuth = null) {

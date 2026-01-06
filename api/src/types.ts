@@ -86,6 +86,11 @@ export interface PaginationMeta {
   totalPages: number;
   hasNext: boolean;
   hasPrev: boolean;
+  // Offset-based pagination
+  offset?: number;
+  // Cursor-based pagination
+  nextCursor?: string | null;
+  prevCursor?: string | null;
 }
 
 // ============================================

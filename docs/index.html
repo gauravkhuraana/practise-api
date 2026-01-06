@@ -180,6 +180,47 @@
       width: 24px;
       height: 24px;
     }
+
+    /* Video Section */
+    .video-section {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin: 1.5rem auto;
+      max-width: 640px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .video-section h3 {
+      margin: 0 0 0.5rem 0;
+      font-size: 1.1rem;
+      color: #fde68a;
+    }
+
+    .video-section p {
+      margin: 0 0 1rem 0;
+      font-size: 0.9rem;
+      opacity: 0.95;
+    }
+
+    .video-container {
+      position: relative;
+      width: 100%;
+      padding-bottom: 56.25%;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .video-container iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
     
     /* Quick start cards */
     .quick-start {
@@ -518,6 +559,20 @@
       <img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi" class="kofi-icon">
       Buy Me a Coffee
     </a>
+    
+    <!-- Video Introduction -->
+    <div class="video-section">
+      <h3>🎬 New Here? Watch This First!</h3>
+      <p>Learn how to use this API for practicing automation testing — a quick walkthrough to get you started!</p>
+      <div class="video-container">
+        <iframe 
+          src="https://www.youtube.com/embed/gmSB2mWHGzU" 
+          title="Bill Payment API - Introduction & Walkthrough"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+          allowfullscreen>
+        </iframe>
+      </div>
+    </div>
   </div>
   
   <!-- Quick Start Cards -->

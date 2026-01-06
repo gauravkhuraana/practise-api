@@ -21,7 +21,7 @@ export const billsRouter = Router({ base: '/v1/bills' });
 billsRouter.get('/', async (request: IRequest, env: Env, ctx?: RequestContext) => {
   const requestId = ctx?.requestId || generateId();
   const url = new URL(request.url);
-  const { page, limit, offset } = parsePaginationParams(url);
+  const { page, limit, offset, mode } = parsePaginationParams(url);
 
   // Filter parameters
   const userId = url.searchParams.get('user_id');
@@ -86,7 +86,11 @@ billsRouter.get('/', async (request: IRequest, env: Env, ctx?: RequestContext) =
       .all();
 
     const data = (bills.results || []).map((row) => formatBill(row));
-    const pagination = calculatePagination(page, limit, total);
+    const lastItem = data[data.length - 1];
+    const pagination = calculatePagination(page, limit, total, {
+      includeCursors: mode === 'cursor' || url.searchParams.has('include_cursors'),
+      lastItemId: lastItem?.id,
+    });
 
     return jsonResponse(
       paginatedResponse(data, pagination, { requestId, version: env.API_VERSION }),
@@ -167,7 +171,7 @@ billsRouter.get('/summary', async (request: IRequest, env: Env, ctx?: RequestCon
 billsRouter.get('/overdue', async (request: IRequest, env: Env, ctx?: RequestContext) => {
   const requestId = ctx?.requestId || generateId();
   const url = new URL(request.url);
-  const { page, limit, offset } = parsePaginationParams(url);
+  const { page, limit, offset, mode } = parsePaginationParams(url);
   const userId = url.searchParams.get('user_id');
 
   try {
@@ -199,7 +203,11 @@ billsRouter.get('/overdue', async (request: IRequest, env: Env, ctx?: RequestCon
       .all();
 
     const data = (bills.results || []).map((row) => formatBill(row));
-    const pagination = calculatePagination(page, limit, total);
+    const lastItem = data[data.length - 1];
+    const pagination = calculatePagination(page, limit, total, {
+      includeCursors: mode === 'cursor' || url.searchParams.has('include_cursors'),
+      lastItemId: lastItem?.id,
+    });
 
     return jsonResponse(
       paginatedResponse(data, pagination, { requestId, version: env.API_VERSION }),

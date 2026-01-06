@@ -99,27 +99,127 @@ export function errorResponse(
 export function calculatePagination(
   page: number,
   limit: number,
-  total: number
+  total: number,
+  options?: { includeCursors?: boolean; lastItemId?: string | number }
 ): PaginationMeta {
   const totalPages = Math.ceil(total / limit);
-  return {
+  const offset = (page - 1) * limit;
+  const hasNext = page < totalPages;
+  const hasPrev = page > 1;
+  
+  const result: PaginationMeta = {
     page,
     limit,
     total,
     totalPages,
-    hasNext: page < totalPages,
-    hasPrev: page > 1,
+    hasNext,
+    hasPrev,
+    offset,
   };
+  
+  // Add cursor-based navigation if requested
+  if (options?.includeCursors) {
+    result.nextCursor = hasNext ? encodeCursor({ offset: offset + limit, id: options.lastItemId }) : null;
+    result.prevCursor = hasPrev ? encodeCursor({ offset: Math.max(0, offset - limit) }) : null;
+  }
+  
+  return result;
+}
+
+// ============================================
+// Cursor-based Pagination Utilities
+// ============================================
+
+export interface CursorData {
+  offset?: number;
+  id?: string | number;
+  timestamp?: string;
+}
+
+/**
+ * Encode cursor data to base64 string
+ */
+export function encodeCursor(data: CursorData): string {
+  const json = JSON.stringify(data);
+  // Use base64url encoding (URL-safe)
+  return btoa(json).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/**
+ * Decode cursor string back to data
+ */
+export function decodeCursor(cursor: string): CursorData | null {
+  try {
+    // Restore base64 from base64url
+    let base64 = cursor.replace(/-/g, '+').replace(/_/g, '/');
+    // Add padding if needed
+    while (base64.length % 4) {
+      base64 += '=';
+    }
+    const json = atob(base64);
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Parse cursor and extract offset for database query
+ */
+export function getCursorOffset(cursor: string | null | undefined): number {
+  if (!cursor) return 0;
+  const data = decodeCursor(cursor);
+  return data?.offset || 0;
+}
+
+/**
+ * Pagination mode types
+ */
+export type PaginationMode = 'page' | 'offset' | 'cursor';
+
+export interface ParsedPaginationParams {
+  page: number;
+  limit: number;
+  offset: number;
+  mode: PaginationMode;
+  cursor?: string;
 }
 
 /**
  * Parse pagination params from URL
+ * Supports three modes:
+ * - Page-based: ?page=2&limit=10 (default)
+ * - Offset-based: ?offset=20&limit=10
+ * - Cursor-based: ?cursor=eyJpZCI6MTB9&limit=10
  */
-export function parsePaginationParams(url: URL): { page: number; limit: number; offset: number } {
-  const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
+export function parsePaginationParams(url: URL): ParsedPaginationParams {
   const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '10', 10)));
+  
+  // Check for cursor-based pagination first
+  const cursor = url.searchParams.get('cursor');
+  if (cursor) {
+    const decoded = decodeCursor(cursor);
+    return {
+      page: 1,
+      limit,
+      offset: decoded?.offset || 0,
+      mode: 'cursor',
+      cursor,
+    };
+  }
+  
+  // Check for direct offset parameter
+  const offsetParam = url.searchParams.get('offset');
+  if (offsetParam !== null) {
+    const offset = Math.max(0, parseInt(offsetParam, 10));
+    const page = Math.floor(offset / limit) + 1;
+    return { page, limit, offset, mode: 'offset' };
+  }
+  
+  // Default to page-based pagination
+  const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
   const offset = (page - 1) * limit;
-  return { page, limit, offset };
+  return { page, limit, offset, mode: 'page' };
 }
 
 /**

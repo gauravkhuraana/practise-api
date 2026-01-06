@@ -11,6 +11,7 @@ import {
   parsePaginationParams,
   generateId,
   getCurrentTimestamp,
+  formatResponse,
 } from '../utils';
 
 export const usersRouter = Router({ base: '/v1/users' });
@@ -21,7 +22,7 @@ export const usersRouter = Router({ base: '/v1/users' });
 usersRouter.get('/', async (request: IRequest, env: Env, ctx?: RequestContext) => {
   const requestId = ctx?.requestId || generateId();
   const url = new URL(request.url);
-  const { page, limit, offset } = parsePaginationParams(url);
+  const { page, limit, offset, mode } = parsePaginationParams(url);
 
   const kycStatus = url.searchParams.get('kyc_status');
   const search = url.searchParams.get('search');
@@ -59,10 +60,16 @@ usersRouter.get('/', async (request: IRequest, env: Env, ctx?: RequestContext) =
       .all();
 
     const data = (users.results || []).map((row) => formatUser(row));
-    const pagination = calculatePagination(page, limit, total);
+    const lastItem = data[data.length - 1];
+    const pagination = calculatePagination(page, limit, total, {
+      includeCursors: mode === 'cursor' || url.searchParams.has('include_cursors'),
+      lastItemId: lastItem?.id,
+    });
 
-    return jsonResponse(
+    return formatResponse(
+      request,
       paginatedResponse(data, pagination, { requestId, version: env.API_VERSION }),
+      'users',
       200,
       { 'X-Request-Id': requestId }
     );
@@ -102,8 +109,10 @@ usersRouter.get('/:id', async (request: IRequest, env: Env, ctx?: RequestContext
       );
     }
 
-    return jsonResponse(
+    return formatResponse(
+      request,
       successResponse(formatUser(user), { requestId, version: env.API_VERSION }),
+      'user',
       200,
       { 'X-Request-Id': requestId }
     );
@@ -124,7 +133,7 @@ usersRouter.get('/:id/bills', async (request: IRequest, env: Env, ctx?: RequestC
   const requestId = ctx?.requestId || generateId();
   const { id } = request.params || {};
   const url = new URL(request.url);
-  const { page, limit, offset } = parsePaginationParams(url);
+  const { page, limit, offset, mode } = parsePaginationParams(url);
 
   if (!id) {
     return jsonResponse(
@@ -173,10 +182,16 @@ usersRouter.get('/:id/bills', async (request: IRequest, env: Env, ctx?: RequestC
       status: row.status,
     }));
 
-    const pagination = calculatePagination(page, limit, total);
+    const lastItem = data[data.length - 1];
+    const pagination = calculatePagination(page, limit, total, {
+      includeCursors: mode === 'cursor' || url.searchParams.has('include_cursors'),
+      lastItemId: lastItem?.id,
+    });
 
-    return jsonResponse(
+    return formatResponse(
+      request,
       paginatedResponse(data, pagination, { requestId, version: env.API_VERSION }),
+      'bills',
       200,
       { 'X-Request-Id': requestId }
     );
@@ -228,8 +243,10 @@ usersRouter.get('/:id/payment-methods', async (request: IRequest, env: Env, ctx?
       isDefault: Boolean(row.is_default),
     }));
 
-    return jsonResponse(
+    return formatResponse(
+      request,
       successResponse(data, { requestId, version: env.API_VERSION }),
+      'paymentMethods',
       200,
       { 'X-Request-Id': requestId }
     );
@@ -250,7 +267,7 @@ usersRouter.get('/:id/transactions', async (request: IRequest, env: Env, ctx?: R
   const requestId = ctx?.requestId || generateId();
   const { id } = request.params || {};
   const url = new URL(request.url);
-  const { page, limit, offset } = parsePaginationParams(url);
+  const { page, limit, offset, mode } = parsePaginationParams(url);
 
   if (!id) {
     return jsonResponse(
@@ -291,10 +308,16 @@ usersRouter.get('/:id/transactions', async (request: IRequest, env: Env, ctx?: R
       createdAt: row.created_at,
     }));
 
-    const pagination = calculatePagination(page, limit, total);
+    const lastItem = data[data.length - 1];
+    const pagination = calculatePagination(page, limit, total, {
+      includeCursors: mode === 'cursor' || url.searchParams.has('include_cursors'),
+      lastItemId: lastItem?.id,
+    });
 
-    return jsonResponse(
+    return formatResponse(
+      request,
       paginatedResponse(data, pagination, { requestId, version: env.API_VERSION }),
+      'transactions',
       200,
       { 'X-Request-Id': requestId }
     );
@@ -370,8 +393,10 @@ usersRouter.post('/', async (request: IRequest, env: Env, ctx?: RequestContext) 
 
     const created = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(id).first();
 
-    return jsonResponse(
+    return formatResponse(
+      request,
       successResponse(formatUser(created), { requestId, version: env.API_VERSION }),
+      'user',
       201,
       { 'X-Request-Id': requestId, Location: `/v1/users/${id}` }
     );
@@ -456,8 +481,10 @@ usersRouter.put('/:id', async (request: IRequest, env: Env, ctx?: RequestContext
 
     const updated = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(id).first();
 
-    return jsonResponse(
+    return formatResponse(
+      request,
       successResponse(formatUser(updated), { requestId, version: env.API_VERSION }),
+      'user',
       200,
       { 'X-Request-Id': requestId }
     );
@@ -582,8 +609,10 @@ usersRouter.patch('/:id', async (request: IRequest, env: Env, ctx?: RequestConte
 
     const updated = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(id).first();
 
-    return jsonResponse(
+    return formatResponse(
+      request,
       successResponse(formatUser(updated), { requestId, version: env.API_VERSION }),
+      'user',
       200,
       { 'X-Request-Id': requestId }
     );
@@ -650,8 +679,10 @@ usersRouter.delete('/:id', async (request: IRequest, env: Env, ctx?: RequestCont
     await env.DB.prepare('DELETE FROM payment_methods WHERE user_id = ?').bind(id).run();
     await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(id).run();
 
-    return jsonResponse(
+    return formatResponse(
+      request,
       successResponse({ deleted: true, id }, { requestId, version: env.API_VERSION }),
+      'user',
       200,
       { 'X-Request-Id': requestId }
     );
@@ -714,7 +745,8 @@ usersRouter.post('/:id/verify-kyc', async (request: IRequest, env: Env, ctx?: Re
 
     const updated = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(id).first();
 
-    return jsonResponse(
+    return formatResponse(
+      request,
       successResponse(
         {
           ...formatUser(updated),
@@ -726,6 +758,7 @@ usersRouter.post('/:id/verify-kyc', async (request: IRequest, env: Env, ctx?: Re
         },
         { requestId, version: env.API_VERSION }
       ),
+      'user',
       200,
       { 'X-Request-Id': requestId }
     );

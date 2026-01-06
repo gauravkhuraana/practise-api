@@ -311,7 +311,7 @@ filesRouter.post('/upload-multiple', async (request: IRequest, env: Env, ctx?: R
 filesRouter.get('/', async (request: IRequest, env: Env, ctx?: RequestContext) => {
   const requestId = ctx?.requestId || generateId();
   const url = new URL(request.url);
-  const { page, limit, offset } = parsePaginationParams(url);
+  const { page, limit, offset, mode } = parsePaginationParams(url);
 
   const mimeType = url.searchParams.get('mime_type');
   const userId = url.searchParams.get('user_id');
@@ -332,7 +332,11 @@ filesRouter.get('/', async (request: IRequest, env: Env, ctx?: RequestContext) =
 
     const total = files.length;
     const paginatedFiles = files.slice(offset, offset + limit);
-    const pagination = calculatePagination(page, limit, total);
+    const lastItem = paginatedFiles[paginatedFiles.length - 1];
+    const pagination = calculatePagination(page, limit, total, {
+      includeCursors: mode === 'cursor' || url.searchParams.has('include_cursors'),
+      lastItemId: lastItem?.id,
+    });
 
     return formatResponse(
       request,

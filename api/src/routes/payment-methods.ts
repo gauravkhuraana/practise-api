@@ -23,7 +23,7 @@ type PaymentMethodType = 'upi' | 'credit_card' | 'debit_card' | 'net_banking' | 
 paymentMethodsRouter.get('/', async (request: IRequest, env: Env, ctx?: RequestContext) => {
   const requestId = ctx?.requestId || generateId();
   const url = new URL(request.url);
-  const { page, limit, offset } = parsePaginationParams(url);
+  const { page, limit, offset, mode } = parsePaginationParams(url);
 
   const userId = url.searchParams.get('user_id');
   const type = url.searchParams.get('type') as PaymentMethodType | null;
@@ -70,7 +70,11 @@ paymentMethodsRouter.get('/', async (request: IRequest, env: Env, ctx?: RequestC
       .all();
 
     const data = (methods.results || []).map((row) => formatPaymentMethod(row));
-    const pagination = calculatePagination(page, limit, total);
+    const lastItem = data[data.length - 1];
+    const pagination = calculatePagination(page, limit, total, {
+      includeCursors: mode === 'cursor' || url.searchParams.has('include_cursors'),
+      lastItemId: lastItem?.id,
+    });
 
     return jsonResponse(
       paginatedResponse(data, pagination, { requestId, version: env.API_VERSION }),

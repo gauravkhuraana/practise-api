@@ -22,7 +22,7 @@ export const billersRouter = Router({ base: '/v1/billers' });
 billersRouter.get('/', async (request: IRequest, env: Env, ctx?: RequestContext) => {
   const requestId = ctx?.requestId || generateId();
   const url = new URL(request.url);
-  const { page, limit, offset } = parsePaginationParams(url);
+  const { page, limit, offset, mode } = parsePaginationParams(url);
 
   // Filter parameters
   const category = url.searchParams.get('category') as BillerCategory | null;
@@ -69,7 +69,11 @@ billersRouter.get('/', async (request: IRequest, env: Env, ctx?: RequestContext)
       .all();
 
     const data = (billers.results || []).map((row) => formatBiller(row));
-    const pagination = calculatePagination(page, limit, total);
+    const lastItem = data[data.length - 1];
+    const pagination = calculatePagination(page, limit, total, {
+      includeCursors: mode === 'cursor' || url.searchParams.has('include_cursors'),
+      lastItemId: lastItem?.id,
+    });
 
     return jsonResponse(
       paginatedResponse(data, pagination, { requestId, version: env.API_VERSION }),
