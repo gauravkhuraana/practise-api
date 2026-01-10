@@ -319,18 +319,18 @@ export function renderScenarios(outlet, ctx) {
               <span class="difficulty-badge easy">Easy</span>
             </div>
             <h3>Form Validation Testing</h3>
-            <p class="scenario-desc">Test form validation on the Practice page</p>
+            <p class="scenario-desc">Test form validation on the <a href="#/practice" class="scenario-link">Practice page</a></p>
             <div class="scenario-details">
               <h4>Requirements:</h4>
               <ul>
-                <li>Navigate to Practice page</li>
+                <li>Navigate to <a href="#/practice" class="scenario-link">Practice page</a></li>
                 <li>Submit form with empty fields, verify error messages</li>
                 <li>Enter invalid email format, verify validation</li>
                 <li>Fill all fields correctly, verify success</li>
                 <li>Test form reset functionality</li>
               </ul>
               <h4>Locators:</h4>
-              <code>[data-testid="practice-form"], [data-testid="submit-btn"]</code>
+              <code>[data-testid="validation-form"], [data-testid="form-submit"], [data-testid="form-errors"]</code>
             </div>
           </div>
 
@@ -506,14 +506,14 @@ export function renderScenarios(outlet, ctx) {
             <div class="scenario-details">
               <h4>Requirements:</h4>
               <ul>
-                <li>Navigate to Users page</li>
-                <li>Click "Add User" and fill form</li>
+                <li>Navigate to <a href="#/users" class="scenario-link">Users page</a></li>
+                <li>Click "Create User" and fill form</li>
                 <li>Submit and note the created user ID</li>
                 <li>Call GET /v1/users/{id} to verify</li>
                 <li>Assert all fields match what was entered</li>
               </ul>
-              <h4>Flow:</h4>
-              <code>UI Form Submit → API GET → Data Comparison</code>
+              <h4>Locators:</h4>
+              <code>[data-testid="create-user-btn"], [data-testid="email-input"], [data-testid="submit-user"]</code>
             </div>
           </div>
 
@@ -529,7 +529,7 @@ export function renderScenarios(outlet, ctx) {
               <h4>Requirements:</h4>
               <ul>
                 <li>Call API to get actual counts (users, bills, payments)</li>
-                <li>Navigate to Dashboard page</li>
+                <li>Navigate to <a href="#/dashboard" class="scenario-link">Dashboard page</a></li>
                 <li>Extract displayed numbers from UI</li>
                 <li>Assert UI numbers match API data</li>
                 <li>Test after adding new record - refresh shows updated count</li>
@@ -551,13 +551,14 @@ export function renderScenarios(outlet, ctx) {
               <h4>Requirements:</h4>
               <ul>
                 <li>API: Create user with kyc_verified: false</li>
-                <li>UI: Navigate to user details</li>
-                <li>UI: Click verify KYC button</li>
+                <li>UI: Navigate to <a href="#/users" class="scenario-link">Users page</a></li>
+                <li>UI: Click verify KYC button (opens modal)</li>
+                <li>UI: Select new status and save</li>
                 <li>API: GET user and verify kyc_verified: true</li>
                 <li>UI: Verify badge changed from "Pending" to "Verified"</li>
               </ul>
-              <h4>State Machine:</h4>
-              <code>pending → verified (irreversible)</code>
+              <h4>Locators:</h4>
+              <code>[data-testid="verify-kyc-{id}"], [data-testid="kyc-new-status"], [data-testid="save-kyc-btn"]</code>
             </div>
           </div>
 
@@ -572,7 +573,7 @@ export function renderScenarios(outlet, ctx) {
             <div class="scenario-details">
               <h4>Requirements:</h4>
               <ul>
-                <li>UI: Select "Electricity" category filter</li>
+                <li>UI: Navigate to <a href="#/billers" class="scenario-link">Billers page</a>, select "Electricity" category filter</li>
                 <li>Intercept network request, verify ?category=electricity</li>
                 <li>API: Call same endpoint with same params</li>
                 <li>Assert UI table rows match API response</li>
@@ -594,6 +595,7 @@ export function renderScenarios(outlet, ctx) {
             <div class="scenario-details">
               <h4>Requirements:</h4>
               <ul>
+                <li>UI: Navigate to <a href="#/payment-methods" class="scenario-link">Payment Methods page</a></li>
                 <li>UI: Add new UPI payment method</li>
                 <li>API: Verify payment method created</li>
                 <li>UI: Edit the payment method (change nickname)</li>
@@ -601,8 +603,8 @@ export function renderScenarios(outlet, ctx) {
                 <li>UI: Delete payment method</li>
                 <li>API: Verify 404 on GET</li>
               </ul>
-              <h4>Validation:</h4>
-              <code>Each UI action → API verification → Continue</code>
+              <h4>Locators:</h4>
+              <code>[data-testid="add-payment-method"], [data-testid="pm-type"], [data-testid="save-method"]</code>
             </div>
           </div>
 
@@ -618,7 +620,7 @@ export function renderScenarios(outlet, ctx) {
               <h4>Requirements:</h4>
               <ul>
                 <li>API: Get list of all billers, pick a name</li>
-                <li>UI: Type partial name in search box</li>
+                <li>UI: Navigate to <a href="#/billers" class="scenario-link">Billers page</a>, type partial name in search box</li>
                 <li>UI: Wait for results to filter</li>
                 <li>Assert matching billers are displayed</li>
                 <li>Assert non-matching billers are hidden</li>
@@ -640,7 +642,7 @@ export function renderScenarios(outlet, ctx) {
               <h4>Requirements:</h4>
               <ul>
                 <li>API: Get bill with auto_pay: false</li>
-                <li>UI: Navigate to Bills page</li>
+                <li>UI: Navigate to <a href="#/bills" class="scenario-link">Bills page</a></li>
                 <li>UI: Find bill, toggle auto-pay switch ON</li>
                 <li>API: Verify bill.auto_pay is now true</li>
                 <li>UI: Toggle OFF, API: Verify auto_pay: false</li>
@@ -661,7 +663,7 @@ export function renderScenarios(outlet, ctx) {
             <div class="scenario-details">
               <h4>Requirements:</h4>
               <ul>
-                <li>Navigate to Settings page</li>
+                <li>Navigate to <a href="#/settings" class="scenario-link">Settings page</a></li>
                 <li>Change auth method (API Key → OAuth)</li>
                 <li>Save settings</li>
                 <li>Make API call, verify correct auth is required</li>
@@ -683,15 +685,15 @@ export function renderScenarios(outlet, ctx) {
             <div class="scenario-details">
               <h4>Requirements:</h4>
               <ul>
-                <li>UI: Navigate to Bills, find pending bill</li>
-                <li>UI: Click "Pay Now" button</li>
-                <li>UI: Select payment method, confirm payment</li>
+                <li>UI: Navigate to <a href="#/bills" class="scenario-link">Bills page</a>, find pending bill</li>
+                <li>UI: Click "Pay" button to open payment modal</li>
+                <li>UI: Select payment method from dropdown, confirm payment</li>
                 <li>UI: Verify success message</li>
                 <li>API: GET payment, verify status: "completed"</li>
                 <li>API: GET bill, verify status: "paid"</li>
               </ul>
-              <h4>E2E Flow:</h4>
-              <code>Bill List → Pay → Confirm → Success → API Verify</code>
+              <h4>Locators:</h4>
+              <code>[data-testid="payment-modal"], [data-testid="pay-method-select"], [data-testid="confirm-payment"]</code>
             </div>
           </div>
 
@@ -739,17 +741,18 @@ test('Create user via UI, verify via API', async ({ page, request }) => {
   // Navigate to Users page
   await page.goto('http://localhost:5173/#/users');
   
-  // Click Add User
-  await page.click('[data-testid="add-user-btn"]');
+  // Click Create User
+  await page.click('[data-testid="create-user-btn"]');
   
   // Fill form
   const email = \`test-\${Date.now()}@example.com\`;
   await page.fill('[data-testid="email-input"]', email);
-  await page.fill('[data-testid="name-input"]', 'Test User');
-  await page.click('[data-testid="submit-btn"]');
+  await page.fill('[data-testid="firstname-input"]', 'Test');
+  await page.fill('[data-testid="lastname-input"]', 'User');
+  await page.click('[data-testid="submit-user"]');
   
   // Wait for success and get user ID
-  await page.waitForSelector('.toast-success');
+  await page.waitForSelector('.toast');
   
   // Verify via API
   const response = await request.get(\`\${API_URL}/v1/users?email=\${email}\`, {
@@ -772,13 +775,14 @@ describe('User Creation Flow', () => {
     
     // UI: Navigate and create user
     cy.visit('http://localhost:5173/#/users');
-    cy.get('[data-testid="add-user-btn"]').click();
+    cy.get('[data-testid="create-user-btn"]').click();
     cy.get('[data-testid="email-input"]').type(email);
-    cy.get('[data-testid="name-input"]').type('Test User');
-    cy.get('[data-testid="submit-btn"]').click();
+    cy.get('[data-testid="firstname-input"]').type('Test');
+    cy.get('[data-testid="lastname-input"]').type('User');
+    cy.get('[data-testid="submit-user"]').click();
     
     // Wait for success
-    cy.get('.toast-success').should('be.visible');
+    cy.get('.toast').should('be.visible');
     
     // API: Verify user created
     cy.request({
@@ -813,16 +817,17 @@ def test_create_user_verify_api():
         driver.get('http://localhost:5173/#/users')
         
         WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="add-user-btn"]'))
+            EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="create-user-btn"]'))
         ).click()
         
         driver.find_element(By.CSS_SELECTOR, '[data-testid="email-input"]').send_keys(email)
-        driver.find_element(By.CSS_SELECTOR, '[data-testid="name-input"]').send_keys('Test User')
-        driver.find_element(By.CSS_SELECTOR, '[data-testid="submit-btn"]').click()
+        driver.find_element(By.CSS_SELECTOR, '[data-testid="firstname-input"]').send_keys('Test')
+        driver.find_element(By.CSS_SELECTOR, '[data-testid="lastname-input"]').send_keys('User')
+        driver.find_element(By.CSS_SELECTOR, '[data-testid="submit-user"]').click()
         
         # Wait for success
         WebDriverWait(driver, 10).until(
-            EC.visibility_of_element_located((By.CSS_SELECTOR, '.toast-success'))
+            EC.visibility_of_element_located((By.CSS_SELECTOR, '.toast'))
         )
         
         # API: Verify user created

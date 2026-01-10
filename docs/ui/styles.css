@@ -865,6 +865,20 @@ th {
   color: var(--primary);
 }
 
+/* Scenario Links */
+.scenario-link {
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+  transition: color 0.15s, text-decoration-color 0.15s;
+}
+
+.scenario-link:hover {
+  color: var(--focus);
+  text-decoration-style: solid;
+}
+
 /* Code Examples */
 .code-examples {
   margin-bottom: var(--space-4);

@@ -5,22 +5,22 @@ export function renderPaymentMethods(outlet, ctx) {
     <h1 class="card__title">Payment Methods</h1>
     <p class="muted">Manage your saved payment methods. Set a default for quick checkout.</p>
 
-    <button id="addMethod" class="btn" style="margin-bottom: var(--space-3);">+ Add Payment Method</button>
+    <button id="addMethod" class="btn" data-testid="add-payment-method" style="margin-bottom: var(--space-3);">+ Add Payment Method</button>
 
-    <div id="methodGrid" class="method-grid"></div>
+    <div id="methodGrid" class="method-grid" data-testid="payment-methods-grid"></div>
 
     <!-- Add/Edit Modal -->
-    <div class="modal-overlay" id="methodOverlay" hidden>
+    <div class="modal-overlay" id="methodOverlay" data-testid="payment-method-modal" hidden>
       <div class="modal">
         <div class="modal__header">
           <span class="modal__title" id="modalTitle">Add Payment Method</span>
-          <button class="modal__close" id="closeModal">&times;</button>
+          <button class="modal__close" id="closeModal" data-testid="close-method-modal">&times;</button>
         </div>
-        <form id="methodForm">
+        <form id="methodForm" data-testid="payment-method-form">
           <div class="modal__body">
             <label class="field">
               <span class="field__label">Type</span>
-              <select id="pmType" class="input" required>
+              <select id="pmType" class="input" data-testid="pm-type" required>
                 <option value="">Select type</option>
                 <option value="upi">UPI</option>
                 <option value="card">Card</option>
@@ -31,14 +31,14 @@ export function renderPaymentMethods(outlet, ctx) {
 
             <label class="field">
               <span class="field__label">Nickname</span>
-              <input id="pmNickname" class="input" placeholder="e.g. Personal Card" />
+              <input id="pmNickname" class="input" data-testid="pm-nickname" placeholder="e.g. Personal Card" />
             </label>
 
             <!-- UPI fields -->
             <div id="upiFields" class="type-fields" hidden>
               <label class="field">
                 <span class="field__label">UPI ID</span>
-                <input id="pmUpiId" class="input" placeholder="yourname@upi" />
+                <input id="pmUpiId" class="input" data-testid="pm-upi-id" placeholder="yourname@upi" />
               </label>
             </div>
 
@@ -46,16 +46,16 @@ export function renderPaymentMethods(outlet, ctx) {
             <div id="cardFields" class="type-fields" hidden>
               <label class="field">
                 <span class="field__label">Card Number</span>
-                <input id="pmCardNumber" class="input" placeholder="1234 5678 9012 3456" maxlength="19" />
+                <input id="pmCardNumber" class="input" data-testid="pm-card-number" placeholder="1234 5678 9012 3456" maxlength="19" />
               </label>
               <div class="row" style="gap: 12px;">
                 <label class="field" style="flex:1;">
                   <span class="field__label">Expiry (MM/YY)</span>
-                  <input id="pmExpiry" class="input" placeholder="MM/YY" maxlength="5" />
+                  <input id="pmExpiry" class="input" data-testid="pm-expiry" placeholder="MM/YY" maxlength="5" />
                 </label>
                 <label class="field" style="flex:1;">
                   <span class="field__label">Name on Card</span>
-                  <input id="pmCardName" class="input" placeholder="JOHN DOE" />
+                  <input id="pmCardName" class="input" data-testid="pm-card-name" placeholder="JOHN DOE" />
                 </label>
               </div>
             </div>
@@ -64,15 +64,15 @@ export function renderPaymentMethods(outlet, ctx) {
             <div id="bankFields" class="type-fields" hidden>
               <label class="field">
                 <span class="field__label">Account Number</span>
-                <input id="pmAcctNo" class="input" placeholder="123456789012" />
+                <input id="pmAcctNo" class="input" data-testid="pm-account-number" placeholder="123456789012" />
               </label>
               <label class="field">
                 <span class="field__label">IFSC Code</span>
-                <input id="pmIfsc" class="input" placeholder="SBIN0001234" maxlength="11" style="text-transform:uppercase;" />
+                <input id="pmIfsc" class="input" data-testid="pm-ifsc" placeholder="SBIN0001234" maxlength="11" style="text-transform:uppercase;" />
               </label>
               <label class="field">
                 <span class="field__label">Account Holder Name</span>
-                <input id="pmAcctName" class="input" placeholder="John Doe" />
+                <input id="pmAcctName" class="input" data-testid="pm-account-name" placeholder="John Doe" />
               </label>
             </div>
 
@@ -80,7 +80,7 @@ export function renderPaymentMethods(outlet, ctx) {
             <div id="walletFields" class="type-fields" hidden>
               <label class="field">
                 <span class="field__label">Wallet Provider</span>
-                <select id="pmWalletProvider" class="input">
+                <select id="pmWalletProvider" class="input" data-testid="pm-wallet-provider">
                   <option value="paytm">Paytm</option>
                   <option value="phonepe">PhonePe</option>
                   <option value="googlepay">Google Pay</option>
@@ -89,18 +89,18 @@ export function renderPaymentMethods(outlet, ctx) {
               </label>
               <label class="field">
                 <span class="field__label">Mobile Number</span>
-                <input id="pmWalletMobile" class="input" placeholder="9876543210" maxlength="10" />
+                <input id="pmWalletMobile" class="input" data-testid="pm-wallet-mobile" placeholder="9876543210" maxlength="10" />
               </label>
             </div>
 
             <label class="field" style="flex-direction:row; align-items:center; gap:8px;">
-              <input type="checkbox" id="pmIsDefault" />
+              <input type="checkbox" id="pmIsDefault" data-testid="pm-is-default" />
               <span class="field__label" style="margin:0;">Set as default</span>
             </label>
           </div>
           <div class="modal__footer">
-            <button type="button" class="btn btn--secondary" id="cancelMethod">Cancel</button>
-            <button type="submit" class="btn" id="saveMethod">Save</button>
+            <button type="button" class="btn btn--secondary" id="cancelMethod" data-testid="cancel-method">Cancel</button>
+            <button type="submit" class="btn" id="saveMethod" data-testid="save-method">Save</button>
           </div>
         </form>
       </div>
@@ -288,15 +288,15 @@ export function renderPaymentMethods(outlet, ctx) {
       }
 
       ui.grid.innerHTML = list.map((m, i) => `
-        <div class="method-card ${m.isDefault ? 'method-card--default' : ''}">
+        <div class="method-card ${m.isDefault ? 'method-card--default' : ''}" data-testid="payment-method-card-${m.id}">
           ${m.isDefault ? '<span class="method-card__default-badge">Default</span>' : ''}
           <div class="method-card__type">${escapeHtml(typeLabel(m.type))}</div>
           <div class="method-card__name">${escapeHtml(m.nickname || m.type)}</div>
           <div class="method-card__detail">${escapeHtml(detailSummary(m))}</div>
           <div class="method-card__actions">
-            ${!m.isDefault ? `<button class="btn btn--secondary btn--sm set-default-btn" data-idx="${i}">Set Default</button>` : ''}
-            <button class="btn btn--secondary btn--sm edit-btn" data-idx="${i}">Edit</button>
-            <button class="btn btn--danger btn--sm delete-btn" data-idx="${i}">Delete</button>
+            ${!m.isDefault ? `<button class="btn btn--secondary btn--sm set-default-btn" data-idx="${i}" data-testid="set-default-${m.id}">Set Default</button>` : ''}
+            <button class="btn btn--secondary btn--sm edit-btn" data-idx="${i}" data-testid="edit-method-${m.id}">Edit</button>
+            <button class="btn btn--danger btn--sm delete-btn" data-idx="${i}" data-testid="delete-method-${m.id}">Delete</button>
           </div>
         </div>
       `).join('');

@@ -32,14 +32,14 @@ export function renderUsers(outlet, { api, toast }) {
       </label>
 
       <div class="row" style="margin-left:auto;">
-        <button id="refresh" class="btn" type="button">Refresh</button>
-        <button id="exportCsv" class="btn btn--secondary" type="button">Export CSV</button>
-        <button id="exportPdf" class="btn btn--secondary" type="button">Export PDF</button>
+        <button id="refresh" class="btn" type="button" data-testid="refresh-users">Refresh</button>
+        <button id="exportCsv" class="btn btn--secondary" type="button" data-testid="export-csv">Export CSV</button>
+        <button id="exportPdf" class="btn btn--secondary" type="button" data-testid="export-pdf">Export PDF</button>
       </div>
     </div>
 
     <div class="row" style="margin-bottom: 14px;">
-      <button id="newUser" class="btn" type="button">Create user</button>
+      <button id="newUser" class="btn" type="button" data-testid="create-user-btn">Create user</button>
       <span class="muted" id="status"></span>
     </div>
 
@@ -173,7 +173,7 @@ export function renderUsers(outlet, { api, toast }) {
         ui.rows.innerHTML = list.map(u => {
           const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || '—';
           return `
-            <tr>
+            <tr data-testid="user-row-${escapeHtml(u.id)}">
               <td>${escapeHtml(u.id || '')}</td>
               <td>${escapeHtml(u.email || '')}</td>
               <td>${escapeHtml(name)}</td>
@@ -182,9 +182,9 @@ export function renderUsers(outlet, { api, toast }) {
               <td>${escapeHtml(fmtDate(u.createdAt))}</td>
               <td>
                 <div class="row">
-                  <button class="btn btn--secondary" type="button" data-action="edit" data-id="${escapeHtml(u.id)}">Edit</button>
-                  <button class="btn btn--secondary" type="button" data-action="kyc" data-id="${escapeHtml(u.id)}">Verify KYC</button>
-                  <button class="btn btn--danger" type="button" data-action="delete" data-id="${escapeHtml(u.id)}">Delete</button>
+                  <button class="btn btn--secondary" type="button" data-action="edit" data-id="${escapeHtml(u.id)}" data-testid="edit-user-${escapeHtml(u.id)}">Edit</button>
+                  <button class="btn btn--secondary" type="button" data-action="kyc" data-id="${escapeHtml(u.id)}" data-testid="verify-kyc-${escapeHtml(u.id)}">Verify KYC</button>
+                  <button class="btn btn--danger" type="button" data-action="delete" data-id="${escapeHtml(u.id)}" data-testid="delete-user-${escapeHtml(u.id)}">Delete</button>
                 </div>
               </td>
             </tr>
@@ -213,36 +213,36 @@ export function renderUsers(outlet, { api, toast }) {
   function userFormHtml(user = {}) {
     const isEdit = Boolean(user?.id);
     return `
-      <form id="userForm">
+      <form id="userForm" data-testid="user-form">
         <div class="row" style="justify-content: space-between; margin-bottom: 10px;">
           <div class="muted">${isEdit ? 'Edit user' : 'Create user'}</div>
-          <button class="btn btn--secondary" type="button" id="closeModal">Close</button>
+          <button class="btn btn--secondary" type="button" id="closeModal" data-testid="close-modal">Close</button>
         </div>
 
         <label class="field">
           <span class="field__label">Email *</span>
-          <input class="input" name="email" value="${escapeHtml(user.email || '')}" required />
+          <input class="input" name="email" data-testid="email-input" value="${escapeHtml(user.email || '')}" required />
         </label>
 
         <div class="row">
           <label class="field" style="margin:0; flex:1; min-width:220px;">
             <span class="field__label">First name *</span>
-            <input class="input" name="firstName" value="${escapeHtml(user.firstName || '')}" required />
+            <input class="input" name="firstName" data-testid="firstname-input" value="${escapeHtml(user.firstName || '')}" required />
           </label>
           <label class="field" style="margin:0; flex:1; min-width:220px;">
             <span class="field__label">Last name</span>
-            <input class="input" name="lastName" value="${escapeHtml(user.lastName || '')}" />
+            <input class="input" name="lastName" data-testid="lastname-input" value="${escapeHtml(user.lastName || '')}" />
           </label>
         </div>
 
         <label class="field">
           <span class="field__label">Phone</span>
-          <input class="input" name="phone" value="${escapeHtml(user.phone || '')}" placeholder="+919876543210" />
+          <input class="input" name="phone" data-testid="phone-input" value="${escapeHtml(user.phone || '')}" placeholder="+919876543210" />
         </label>
 
         <label class="field">
           <span class="field__label">KYC status</span>
-          <select class="input" name="kycStatus">
+          <select class="input" name="kycStatus" data-testid="kyc-status-select">
             <option value="pending" ${user.kycStatus === 'pending' || !user.kycStatus ? 'selected' : ''}>pending</option>
             <option value="verified" ${user.kycStatus === 'verified' ? 'selected' : ''}>verified</option>
             <option value="rejected" ${user.kycStatus === 'rejected' ? 'selected' : ''}>rejected</option>
@@ -267,17 +267,17 @@ export function renderUsers(outlet, { api, toast }) {
           </label>
           <label class="field" style="margin:0; flex:1; min-width:160px;">
             <span class="field__label">Postal code</span>
-            <input class="input" name="address.postalCode" value="${escapeHtml(user.address?.postalCode || '')}" />
+            <input class="input" name="address.postalCode" data-testid="postal-code-input" value="${escapeHtml(user.address?.postalCode || '')}" />
           </label>
         </div>
 
         <label class="field">
           <span class="field__label">Country</span>
-          <input class="input" name="address.country" value="${escapeHtml(user.address?.country || 'IN')}" />
+          <input class="input" name="address.country" data-testid="country-input" value="${escapeHtml(user.address?.country || 'IN')}" />
         </label>
 
         <div class="row" style="justify-content: flex-end; margin-top: 12px;">
-          <button class="btn" type="submit">${isEdit ? 'Save changes' : 'Create user'}</button>
+          <button class="btn" type="submit" data-testid="submit-user">${isEdit ? 'Save changes' : 'Create user'}</button>
         </div>
 
         ${isEdit ? `<input type="hidden" name="id" value="${escapeHtml(user.id)}" />` : ''}
@@ -289,12 +289,12 @@ export function renderUsers(outlet, { api, toast }) {
     return `
       <div class="row" style="justify-content: space-between; margin-bottom: 10px;">
         <div class="muted">Update KYC status for <strong>${escapeHtml(userId)}</strong></div>
-        <button class="btn btn--secondary" type="button" id="closeModal">Close</button>
+        <button class="btn btn--secondary" type="button" id="closeModal" data-testid="close-kyc-modal">Close</button>
       </div>
 
       <label class="field">
         <span class="field__label">New status</span>
-        <select id="newStatus" class="input">
+        <select id="newStatus" class="input" data-testid="kyc-new-status">
           <option value="verified">verified</option>
           <option value="rejected">rejected</option>
           <option value="pending">pending</option>
@@ -302,10 +302,10 @@ export function renderUsers(outlet, { api, toast }) {
       </label>
 
       <div class="row" style="justify-content:flex-end;">
-        <button id="saveKyc" class="btn" type="button">Update KYC</button>
+        <button id="saveKyc" class="btn" type="button" data-testid="save-kyc-btn">Update KYC</button>
       </div>
 
-      <pre class="code" id="kycOutput"></pre>
+      <pre class="code" id="kycOutput" data-testid="kyc-output"></pre>
     `;
   }
 

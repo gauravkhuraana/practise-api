@@ -3,6 +3,59 @@ export function renderPractice(outlet, { toast }) {
     <h1 class="card__title">Practice Components</h1>
     <p class="muted">Comprehensive UI patterns for Selenium/Playwright/Cypress automation practice.</p>
 
+    <!-- ===== FORM VALIDATION ===== -->
+    <section class="practice-section">
+      <h2 class="section-title">Form Validation</h2>
+      
+      <div class="card" style="margin-top:16px;">
+        <h3 class="card__title" style="font-size:15px;">Registration Form</h3>
+        <p class="muted" style="margin-bottom:12px;">Practice form validation testing - submit with invalid data to see error messages.</p>
+        
+        <form id="validationForm" data-testid="validation-form" novalidate>
+          <div id="formErrors" data-testid="form-errors" class="form-errors" style="display:none;"></div>
+          
+          <label class="field">
+            <span class="field__label">Email *</span>
+            <input class="input" id="formEmail" data-testid="form-email" type="email" placeholder="your@email.com" />
+            <span class="field-error" id="emailError" data-testid="email-error"></span>
+          </label>
+          
+          <label class="field">
+            <span class="field__label">Password * (min 6 characters)</span>
+            <input class="input" id="formPassword" data-testid="form-password" type="password" placeholder="Enter password" />
+            <span class="field-error" id="passwordError" data-testid="password-error"></span>
+          </label>
+          
+          <label class="field">
+            <span class="field__label">Confirm Password *</span>
+            <input class="input" id="formConfirmPassword" data-testid="form-confirm-password" type="password" placeholder="Confirm password" />
+            <span class="field-error" id="confirmPasswordError" data-testid="confirm-password-error"></span>
+          </label>
+          
+          <label class="field">
+            <span class="field__label">Phone (optional, 10 digits)</span>
+            <input class="input" id="formPhone" data-testid="form-phone" type="tel" placeholder="9876543210" maxlength="10" />
+            <span class="field-error" id="phoneError" data-testid="phone-error"></span>
+          </label>
+          
+          <label class="checkbox-label" style="margin:12px 0;">
+            <input type="checkbox" id="formTerms" data-testid="form-terms" />
+            <span>I agree to Terms & Conditions *</span>
+          </label>
+          <span class="field-error" id="termsError" data-testid="terms-error"></span>
+          
+          <div class="row" style="gap:8px; margin-top:16px;">
+            <button type="submit" class="btn" id="formSubmit" data-testid="form-submit">Register</button>
+            <button type="reset" class="btn btn--secondary" id="formReset" data-testid="form-reset">Reset Form</button>
+          </div>
+          
+          <div id="formSuccess" data-testid="form-success" class="form-success" style="display:none;">
+            ✅ Registration successful! Form data validated.
+          </div>
+        </form>
+      </div>
+    </section>
+
     <!-- ===== BASIC ELEMENTS ===== -->
     <section class="practice-section">
       <h2 class="section-title">Basic Elements</h2>
@@ -454,8 +507,107 @@ export function renderPractice(outlet, { toast }) {
       .response-box { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-family: monospace; font-size: 12px; max-height: 300px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
       .response-box--success { border-color: var(--success); background: rgba(16, 185, 129, 0.05); }
       .response-box--error { border-color: var(--danger); background: rgba(239, 68, 68, 0.05); }
+      .form-errors { background: var(--danger-light); color: var(--danger); padding: 12px; border-radius: 8px; margin-bottom: 16px; border: 1px solid var(--danger); }
+      .form-errors ul { margin: 0; padding-left: 20px; }
+      .form-success { background: var(--success-light); color: var(--success); padding: 12px; border-radius: 8px; margin-top: 16px; border: 1px solid var(--success); font-weight: 600; }
+      .field-error { color: var(--danger); font-size: 12px; margin-top: 4px; display: block; }
+      .input.input--error { border-color: var(--danger); }
     </style>
   `;
+
+  // ===== FORM VALIDATION LOGIC =====
+  const validationForm = outlet.querySelector('#validationForm');
+  const formErrors = outlet.querySelector('#formErrors');
+  const formSuccess = outlet.querySelector('#formSuccess');
+  const formEmail = outlet.querySelector('#formEmail');
+  const formPassword = outlet.querySelector('#formPassword');
+  const formConfirmPassword = outlet.querySelector('#formConfirmPassword');
+  const formPhone = outlet.querySelector('#formPhone');
+  const formTerms = outlet.querySelector('#formTerms');
+
+  function clearErrors() {
+    formErrors.style.display = 'none';
+    formErrors.innerHTML = '';
+    formSuccess.style.display = 'none';
+    for (const el of outlet.querySelectorAll('.field-error')) {
+      el.textContent = '';
+    }
+    for (const el of outlet.querySelectorAll('.input--error')) {
+      el.classList.remove('input--error');
+    }
+  }
+
+  function showFieldError(inputId, errorId, message) {
+    const input = outlet.querySelector(`#${inputId}`);
+    const error = outlet.querySelector(`#${errorId}`);
+    if (input) input.classList.add('input--error');
+    if (error) error.textContent = message;
+  }
+
+  validationForm?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    clearErrors();
+
+    const errors = [];
+    const email = formEmail?.value.trim() || '';
+    const password = formPassword?.value || '';
+    const confirmPassword = formConfirmPassword?.value || '';
+    const phone = formPhone?.value.trim() || '';
+    const termsAccepted = formTerms?.checked || false;
+
+    // Email validation
+    if (!email) {
+      errors.push('Email is required');
+      showFieldError('formEmail', 'emailError', 'Email is required');
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors.push('Invalid email format');
+      showFieldError('formEmail', 'emailError', 'Please enter a valid email address');
+    }
+
+    // Password validation
+    if (!password) {
+      errors.push('Password is required');
+      showFieldError('formPassword', 'passwordError', 'Password is required');
+    } else if (password.length < 6) {
+      errors.push('Password must be at least 6 characters');
+      showFieldError('formPassword', 'passwordError', 'Password must be at least 6 characters');
+    }
+
+    // Confirm password validation
+    if (!confirmPassword) {
+      errors.push('Please confirm your password');
+      showFieldError('formConfirmPassword', 'confirmPasswordError', 'Please confirm your password');
+    } else if (password !== confirmPassword) {
+      errors.push('Passwords do not match');
+      showFieldError('formConfirmPassword', 'confirmPasswordError', 'Passwords do not match');
+    }
+
+    // Phone validation (optional but if provided, must be valid)
+    if (phone && !/^\d{10}$/.test(phone)) {
+      errors.push('Phone must be 10 digits');
+      showFieldError('formPhone', 'phoneError', 'Phone must be exactly 10 digits');
+    }
+
+    // Terms validation
+    if (!termsAccepted) {
+      errors.push('You must accept Terms & Conditions');
+      showFieldError('formTerms', 'termsError', 'You must accept Terms & Conditions');
+    }
+
+    if (errors.length > 0) {
+      formErrors.innerHTML = `<strong>Please fix the following errors:</strong><ul>${errors.map(e => `<li>${e}</li>`).join('')}</ul>`;
+      formErrors.style.display = 'block';
+      toast?.('Validation Failed', `${errors.length} error(s) found`);
+    } else {
+      formSuccess.style.display = 'block';
+      toast?.('Success', 'Form validated successfully!');
+    }
+  });
+
+  validationForm?.addEventListener('reset', () => {
+    clearErrors();
+    toast?.('Form Reset', 'All fields cleared');
+  });
 
   // ===== BASIC ELEMENTS LOGIC =====
   

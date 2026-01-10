@@ -80,8 +80,42 @@ export function renderBills(outlet, ctx) {
       <div class="muted" id="pageInfo"></div>
     </div>
 
+    <!-- Payment Modal -->
+    <div class="modal-overlay" id="paymentModal" data-testid="payment-modal" hidden>
+      <div class="modal">
+        <div class="modal__header">
+          <span class="modal__title">Make Payment</span>
+          <button class="modal__close" id="closePaymentModal" data-testid="close-payment-modal">&times;</button>
+        </div>
+        <div class="modal__body">
+          <div id="paymentBillInfo" class="kv" style="margin-bottom:16px;"></div>
+          
+          <label class="field">
+            <span class="field__label">Select Payment Method *</span>
+            <select id="payMethodSelect" data-testid="pay-method-select" class="input" required>
+              <option value="">Loading payment methods...</option>
+            </select>
+          </label>
+          
+          <label class="field">
+            <span class="field__label">Notes (optional)</span>
+            <input type="text" id="paymentNotes" data-testid="payment-notes" class="input" placeholder="Add a note for this payment" />
+          </label>
+          
+          <div id="paymentError" class="payment-error" style="display:none;"></div>
+          <div id="paymentSuccess" class="payment-success" style="display:none;"></div>
+        </div>
+        <div class="modal__footer">
+          <button type="button" class="btn btn--secondary" id="cancelPayment" data-testid="cancel-payment">Cancel</button>
+          <button type="button" class="btn" id="confirmPayment" data-testid="confirm-payment">💳 Confirm Payment</button>
+        </div>
+      </div>
+    </div>
+
     <style>
       .bills-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-4); }
+      .payment-error { background: var(--danger-light); color: var(--danger); padding: 12px; border-radius: 8px; margin-top: 12px; border: 1px solid var(--danger); }
+      .payment-success { background: var(--success-light); color: var(--success); padding: 12px; border-radius: 8px; margin-top: 12px; border: 1px solid var(--success); font-weight: 600; }
     </style>
   `;
 
@@ -99,9 +133,108 @@ export function renderBills(outlet, ctx) {
     stPaid: outlet.querySelector('#stPaid'),
     stOverdue: outlet.querySelector('#stOverdue'),
     stTotal: outlet.querySelector('#stTotal'),
+    // Payment modal
+    paymentModal: outlet.querySelector('#paymentModal'),
+    closePaymentModal: outlet.querySelector('#closePaymentModal'),
+    cancelPayment: outlet.querySelector('#cancelPayment'),
+    confirmPayment: outlet.querySelector('#confirmPayment'),
+    payMethodSelect: outlet.querySelector('#payMethodSelect'),
+    paymentNotes: outlet.querySelector('#paymentNotes'),
+    paymentBillInfo: outlet.querySelector('#paymentBillInfo'),
+    paymentError: outlet.querySelector('#paymentError'),
+    paymentSuccess: outlet.querySelector('#paymentSuccess'),
   };
 
-  const state = { page: 1, limit: 10 };
+  const state = { page: 1, limit: 10, currentBill: null };
+
+  // Payment modal functions
+  function openPaymentModal(bill) {
+    state.currentBill = bill;
+    ui.paymentError.style.display = 'none';
+    ui.paymentSuccess.style.display = 'none';
+    ui.paymentNotes.value = '';
+    ui.confirmPayment.disabled = false;
+    
+    ui.paymentBillInfo.innerHTML = `
+      <div class="kv__row"><span class="kv__k">Bill #</span><span class="kv__v">${escapeHtml(bill.billNumber || bill.id)}</span></div>
+      <div class="kv__row"><span class="kv__k">Biller</span><span class="kv__v">${escapeHtml(bill.billerName || bill.billerId || '—')}</span></div>
+      <div class="kv__row"><span class="kv__k">Amount</span><span class="kv__v" style="font-weight:700;font-size:18px;">₹${formatNum(bill.amount)}</span></div>
+      <div class="kv__row"><span class="kv__k">Due Date</span><span class="kv__v">${bill.dueDate ? new Date(bill.dueDate).toLocaleDateString() : '—'}</span></div>
+    `;
+    
+    // Load payment methods
+    loadPaymentMethods();
+    ui.paymentModal.hidden = false;
+  }
+
+  function closePaymentModalFn() {
+    ui.paymentModal.hidden = true;
+    state.currentBill = null;
+  }
+
+  async function loadPaymentMethods() {
+    ui.payMethodSelect.innerHTML = '<option value="">Loading payment methods...</option>';
+    try {
+      const res = await api().get('/v1/payment-methods');
+      const methods = res?.data || [];
+      if (methods.length === 0) {
+        ui.payMethodSelect.innerHTML = '<option value="">No payment methods found - add one first</option>';
+      } else {
+        ui.payMethodSelect.innerHTML = '<option value="">Select a payment method</option>' + 
+          methods.map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.nickname || m.type)} (${escapeHtml(m.type)})</option>`).join('');
+      }
+    } catch (e) {
+      ui.payMethodSelect.innerHTML = '<option value="">Failed to load payment methods</option>';
+    }
+  }
+
+  async function processPayment() {
+    const methodId = ui.payMethodSelect.value;
+    if (!methodId) {
+      ui.paymentError.textContent = 'Please select a payment method';
+      ui.paymentError.style.display = 'block';
+      return;
+    }
+    
+    ui.confirmPayment.disabled = true;
+    ui.confirmPayment.textContent = 'Processing...';
+    ui.paymentError.style.display = 'none';
+    
+    try {
+      const payload = {
+        billId: state.currentBill.id,
+        paymentMethodId: methodId,
+        amount: state.currentBill.amount,
+        notes: ui.paymentNotes.value.trim() || undefined,
+      };
+      
+      const res = await api().post('/v1/payments', payload);
+      
+      ui.paymentSuccess.innerHTML = `✅ Payment successful!<br>Payment ID: ${escapeHtml(res?.data?.id || 'N/A')}<br>Status: ${escapeHtml(res?.data?.status || 'completed')}`;
+      ui.paymentSuccess.style.display = 'block';
+      toast('Payment Success', `Bill ${state.currentBill.billNumber || state.currentBill.id} paid successfully!`);
+      
+      // Reload bills after short delay
+      setTimeout(() => {
+        closePaymentModalFn();
+        load();
+      }, 2000);
+      
+    } catch (e) {
+      ui.paymentError.textContent = `Payment failed: ${e?.message || 'Unknown error'}`;
+      ui.paymentError.style.display = 'block';
+      ui.confirmPayment.disabled = false;
+      ui.confirmPayment.textContent = '💳 Confirm Payment';
+      toast('Payment Failed', e?.message || 'Unknown error');
+    }
+  }
+
+  ui.closePaymentModal?.addEventListener('click', closePaymentModalFn);
+  ui.cancelPayment?.addEventListener('click', closePaymentModalFn);
+  ui.confirmPayment?.addEventListener('click', processPayment);
+  ui.paymentModal?.addEventListener('click', (e) => {
+    if (e.target === ui.paymentModal) closePaymentModalFn();
+  });
 
   ui.refresh.addEventListener('click', () => { state.page = 1; load(); });
   ui.prev.addEventListener('click', () => { state.page = Math.max(1, state.page - 1); load(); });
@@ -128,6 +261,7 @@ export function renderBills(outlet, ctx) {
     try {
       const res = await api().get(`/v1/bills?${params.toString()}`);
       const list = res?.data || [];
+      state.billsList = list; // Store for payment modal access
 
       if (!list.length) {
         ui.tbody.innerHTML = `<tr><td colspan="7" class="muted" style="text-align:center;">No bills found.</td></tr>`;
@@ -141,7 +275,7 @@ export function renderBills(outlet, ctx) {
             <td><span class="badge ${statusBadge(b.status)}">${escapeHtml(b.status)}</span></td>
             <td>${autoPayToggle(b)}</td>
             <td>
-              ${b.status === 'pending' ? `<button class="btn btn--secondary btn--sm pay-btn" data-id="${b.id}">Pay</button>` : ''}
+              ${b.status === 'pending' ? `<button class="btn btn--secondary btn--sm pay-btn" data-testid="pay-btn-${b.id}" data-id="${b.id}">Pay</button>` : ''}
             </td>
           </tr>
         `).join('');
@@ -161,10 +295,14 @@ export function renderBills(outlet, ctx) {
           });
         }
 
-        // Wire pay buttons
+        // Wire pay buttons to open modal
         for (const btn of ui.tbody.querySelectorAll('.pay-btn')) {
           btn.addEventListener('click', () => {
-            navigate(`/payments?bill=${btn.dataset.id}`);
+            const billId = btn.dataset.id;
+            const bill = state.billsList.find(b => b.id === billId);
+            if (bill) {
+              openPaymentModal(bill);
+            }
           });
         }
       }
