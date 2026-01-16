@@ -94,6 +94,22 @@ export function errorResponse(
 }
 
 /**
+ * Create a 403 Forbidden response
+ * Use when authenticated user lacks permission (vs 401 for unauthenticated)
+ */
+export function forbiddenResponse(
+  requestId: string,
+  message: string = 'You do not have permission to access this resource.',
+  details?: ApiError['details']
+): Response {
+  return jsonResponse(
+    errorResponse('FORBIDDEN', message, requestId, details),
+    403,
+    { 'X-Request-Id': requestId }
+  );
+}
+
+/**
  * Calculate pagination metadata
  */
 export function calculatePagination(

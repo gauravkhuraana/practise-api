@@ -5,6 +5,7 @@ import { Env, RequestContext, Bill, BillStatus } from '../types';
 import {
   jsonResponse,
   errorResponse,
+  forbiddenResponse,
   successResponse,
   paginatedResponse,
   calculatePagination,
@@ -236,6 +237,15 @@ billsRouter.get('/:id', async (request: IRequest, env: Env, ctx?: RequestContext
       errorResponse('INVALID_REQUEST', 'Bill ID is required', requestId),
       400,
       { 'X-Request-Id': requestId }
+    );
+  }
+
+  // 403 Forbidden: Block access to restricted bills (for testing 403 responses)
+  if (id.includes('restricted')) {
+    return forbiddenResponse(
+      requestId,
+      'Access to restricted bills is not allowed.',
+      [{ field: 'id', code: 'RESTRICTED_RESOURCE', message: 'This bill is marked as restricted' }]
     );
   }
 

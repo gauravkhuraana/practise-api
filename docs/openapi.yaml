@@ -1727,6 +1727,23 @@ components:
               message: Authentication required. Provide API Key, Bearer token, or Basic auth credentials.
               traceId: abc-123
               timestamp: "2025-12-18T10:30:00.000Z"
+    Forbidden:
+      description: Access forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: FORBIDDEN
+              message: You do not have permission to access this resource.
+              traceId: abc-123
+              timestamp: "2025-12-18T10:30:00.000Z"
+              details:
+                - field: authorization
+                  code: INSUFFICIENT_PERMISSIONS
+                  message: Required scope 'admin:write' is missing
     NotFound:
       description: Resource not found
       content:
