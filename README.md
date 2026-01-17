@@ -89,6 +89,7 @@ Follow this logical sequence to understand and test the complete bill payment wo
 | Scenario | Endpoint | How to Trigger |
 |----------|----------|----------------|
 | **401 Unauthorized** | Any authenticated endpoint | Remove or invalidate API key |
+| **403 Forbidden** | `GET /v1/bills/{id}` | Use bill ID containing "restricted": `restricted-xyz` |
 | **404 Not Found** | `GET /v1/billers/{id}` | Use non-existent ID: `biller-xyz-999` |
 | **400 Validation Error** | `POST /v1/bills` | Missing required fields or invalid data |
 | **409 Conflict** | `DELETE /v1/billers/{id}` | Delete biller that has associated bills |

@@ -644,6 +644,10 @@ paths:
     get:
       tags: [Bills]
       summary: Get bill by ID
+      description: |
+        Retrieve a bill by its ID.
+        
+        **Note:** Bills with IDs containing "restricted" will return a 403 Forbidden response (for testing purposes).
       operationId: getBill
       parameters:
         - $ref: '#/components/parameters/BillId'
@@ -654,6 +658,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BillResponse'
+        '403':
+          description: Access forbidden - restricted bill
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error:
+                  code: FORBIDDEN
+                  message: Access to restricted bills is not allowed.
+                  details:
+                    - field: id
+                      code: RESTRICTED_RESOURCE
+                      message: This bill is marked as restricted
+                  traceId: abc-123
+                  timestamp: "2025-12-18T10:30:00.000Z"
         '404':
           $ref: '#/components/responses/NotFound'
 
