@@ -265,20 +265,27 @@ belong there. Validators will not necessarily catch this — Redocly happily lin
 either shape — but Swagger UI silently renders nothing for
 `additionalOperations`, so the operation just disappears from your docs.
 
-**Swagger UI renders `query:` but will not execute it.** You get a proper
-purple `QUERY` block with the request body, examples and responses — but no
-"Try it out" / Execute button, which standard methods do get.
+**Swagger UI hides Execute for QUERY unless you ask for it.** The operation
+renders as a proper purple `QUERY` block, but Try it out only appears for
+methods listed in `supportedSubmitMethods`, and `query` is not in Swagger UI's
+default list. `docs/index.html` names it explicitly:
 
-That is exactly why the `POST /v1/{resource}/query` fallbacks stay in the spec:
+```js
+supportedSubmitMethods: ['get','post','put','delete','patch','head','options','query'],
+```
 
-| Form | Renders | Executable in Swagger UI |
-|------|---------|--------------------------|
-| `query:` on the path item | ✅ as a QUERY block | ❌ documentation only |
-| `POST /v1/{resource}/query` | ✅ as a POST block | ✅ Try it out works |
+With that in place, Execute issues a real native `QUERY` from the browser —
+preflight included, since the API already advertises `QUERY` in
+`Access-Control-Allow-Methods`. Check `x-query-source: query-method` in the
+response headers to confirm you went through the native verb rather than a
+fallback.
 
-Nothing is duplicated at runtime — both describe the same handler, and
-`meta.querySource` tells you which route a response came through. To actually
-send a native QUERY, use curl or your HTTP client:
+The `POST /v1/{resource}/query` fallbacks remain for a different reason: some
+proxies and HTTP clients still refuse unfamiliar verbs outright. Nothing is
+duplicated at runtime — all three forms hit the same handler, and
+`meta.querySource` reports which one you used.
+
+From the command line:
 
 ```bash
 curl -X QUERY https://<host>/v1/bills \
