@@ -162,7 +162,7 @@ paymentMethodsRouter.post('/', async (request: IRequest, env: Env, ctx?: Request
   const requestId = ctx?.requestId || generateId();
 
   try {
-    const body = await request.json();
+    const body = await request.json() as any;
     const errors = validatePaymentMethodInput(body, true);
 
     if (errors.length > 0) {
@@ -281,7 +281,7 @@ paymentMethodsRouter.put('/:id', async (request: IRequest, env: Env, ctx?: Reque
       );
     }
 
-    const body = await request.json();
+    const body = await request.json() as any;
     const errors = validatePaymentMethodInput(body, true);
 
     if (errors.length > 0) {
@@ -377,7 +377,7 @@ paymentMethodsRouter.patch('/:id', async (request: IRequest, env: Env, ctx?: Req
       );
     }
 
-    const body = await request.json();
+    const body = await request.json() as any;
     const updates: string[] = [];
     const values: unknown[] = [];
 

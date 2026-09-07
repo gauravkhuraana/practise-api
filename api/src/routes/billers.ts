@@ -13,6 +13,8 @@ import {
   generateId,
   getCurrentTimestamp,
 } from '../utils';
+import { parseListOptions } from '../lib/query';
+import { billersResource } from '../lib/resources';
 
 export const billersRouter = Router({ base: '/v1/billers' });
 
@@ -23,6 +25,17 @@ billersRouter.get('/', async (request: IRequest, env: Env, ctx?: RequestContext)
   const requestId = ctx?.requestId || generateId();
   const url = new URL(request.url);
   const { page, limit, offset, mode } = parsePaginationParams(url);
+  // Optional ?sort= and ?fields= support, shared with the QUERY method.
+  const listOptions = parseListOptions(billersResource, url);
+  if (listOptions.issues.length > 0) {
+    return jsonResponse(
+      errorResponse('VALIDATION_ERROR', 'Invalid sort or fields parameter', requestId, listOptions.issues),
+      400,
+      { 'X-Request-Id': requestId }
+    );
+  }
+  const orderBySql = listOptions.orderBy || 'category, display_name';
+
 
   // Filter parameters
   const category = url.searchParams.get('category') as BillerCategory | null;
@@ -63,7 +76,7 @@ billersRouter.get('/', async (request: IRequest, env: Env, ctx?: RequestContext)
 
     // Get paginated results
     const billers = await env.DB.prepare(
-      `SELECT * FROM billers ${whereClause} ORDER BY category, display_name LIMIT ? OFFSET ?`
+      `SELECT * FROM billers ${whereClause} ORDER BY ${orderBySql} LIMIT ? OFFSET ?`
     )
       .bind(...params, limit, offset)
       .all();
@@ -170,7 +183,7 @@ billersRouter.post('/', async (request: IRequest, env: Env, ctx?: RequestContext
   const requestId = ctx?.requestId || generateId();
 
   try {
-    const body = await request.json();
+    const body = await request.json() as any;
     const errors = validateBillerInput(body, true);
 
     if (errors.length > 0) {
@@ -262,7 +275,7 @@ billersRouter.put('/:id', async (request: IRequest, env: Env, ctx?: RequestConte
       );
     }
 
-    const body = await request.json();
+    const body = await request.json() as any;
     const errors = validateBillerInput(body, true);
 
     if (errors.length > 0) {
@@ -344,7 +357,7 @@ billersRouter.patch('/:id', async (request: IRequest, env: Env, ctx?: RequestCon
       );
     }
 
-    const body = await request.json();
+    const body = await request.json() as any;
     const errors = validateBillerInput(body, false);
 
     if (errors.length > 0) {
@@ -516,7 +529,7 @@ billersRouter.head('/:id', async (request: IRequest, env: Env, ctx?: RequestCont
 // Helper Functions
 // ============================================
 
-function formatBiller(row: any): Partial<Biller> {
+export function formatBiller(row: any): Partial<Biller> {
   if (!row) return {};
   
   let supportedPaymentModes = row.supported_payment_modes;

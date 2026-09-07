@@ -13,6 +13,8 @@ import {
   generateId,
   getCurrentTimestamp,
 } from '../utils';
+import { parseListOptions } from '../lib/query';
+import { billsResource } from '../lib/resources';
 
 export const billsRouter = Router({ base: '/v1/bills' });
 
@@ -23,6 +25,17 @@ billsRouter.get('/', async (request: IRequest, env: Env, ctx?: RequestContext) =
   const requestId = ctx?.requestId || generateId();
   const url = new URL(request.url);
   const { page, limit, offset, mode } = parsePaginationParams(url);
+  // Optional ?sort= and ?fields= support, shared with the QUERY method.
+  const listOptions = parseListOptions(billsResource, url);
+  if (listOptions.issues.length > 0) {
+    return jsonResponse(
+      errorResponse('VALIDATION_ERROR', 'Invalid sort or fields parameter', requestId, listOptions.issues),
+      400,
+      { 'X-Request-Id': requestId }
+    );
+  }
+  const orderBySql = listOptions.orderBy || 'b.due_date ASC, b.created_at DESC';
+
 
   // Filter parameters
   const userId = url.searchParams.get('user_id');
@@ -80,7 +93,7 @@ billsRouter.get('/', async (request: IRequest, env: Env, ctx?: RequestContext) =
        FROM bills b
        LEFT JOIN billers bl ON b.biller_id = bl.id
        ${whereClause}
-       ORDER BY b.due_date ASC, b.created_at DESC
+       ORDER BY ${orderBySql}
        LIMIT ? OFFSET ?`
     )
       .bind(...params, limit, offset)
@@ -289,7 +302,7 @@ billsRouter.post('/', async (request: IRequest, env: Env, ctx?: RequestContext) 
   const requestId = ctx?.requestId || generateId();
 
   try {
-    const body = await request.json();
+    const body = await request.json() as any;
     const errors = validateBillInput(body, true);
 
     if (errors.length > 0) {
@@ -415,7 +428,7 @@ billsRouter.put('/:id', async (request: IRequest, env: Env, ctx?: RequestContext
       );
     }
 
-    const body = await request.json();
+    const body = await request.json() as any;
     const errors = validateBillInput(body, true);
 
     if (errors.length > 0) {
@@ -508,7 +521,7 @@ billsRouter.patch('/:id', async (request: IRequest, env: Env, ctx?: RequestConte
       );
     }
 
-    const body = await request.json();
+    const body = await request.json() as any;
     const errors = validateBillInput(body, false);
 
     if (errors.length > 0) {
@@ -740,7 +753,7 @@ billsRouter.post('/:id/fetch', async (request: IRequest, env: Env, ctx?: Request
 // Helper Functions
 // ============================================
 
-function formatBill(row: any): Partial<Bill> & { billerName?: string; billerCategory?: string } {
+export function formatBill(row: any): Partial<Bill> & { billerName?: string; billerCategory?: string } {
   if (!row) return {};
 
   let billDetails = row.bill_details;

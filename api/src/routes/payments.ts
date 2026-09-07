@@ -14,6 +14,9 @@ import {
   generateReferenceNumber,
   getCurrentTimestamp,
 } from '../utils';
+import { parseListOptions } from '../lib/query';
+import { dispatchWebhookEvent } from './webhooks';
+import { paymentsResource } from '../lib/resources';
 
 export const paymentsRouter = Router({ base: '/v1/payments' });
 
@@ -26,6 +29,17 @@ paymentsRouter.get('/', async (request: IRequest, env: Env, ctx?: RequestContext
   const requestId = ctx?.requestId || generateId();
   const url = new URL(request.url);
   const { page, limit, offset, mode } = parsePaginationParams(url);
+  // Optional ?sort= and ?fields= support, shared with the QUERY method.
+  const listOptions = parseListOptions(paymentsResource, url);
+  if (listOptions.issues.length > 0) {
+    return jsonResponse(
+      errorResponse('VALIDATION_ERROR', 'Invalid sort or fields parameter', requestId, listOptions.issues),
+      400,
+      { 'X-Request-Id': requestId }
+    );
+  }
+  const orderBySql = listOptions.orderBy || 'p.created_at DESC';
+
 
   const userId = url.searchParams.get('user_id');
   const billId = url.searchParams.get('bill_id');
@@ -82,7 +96,7 @@ paymentsRouter.get('/', async (request: IRequest, env: Env, ctx?: RequestContext
        LEFT JOIN bills b ON p.bill_id = b.id
        LEFT JOIN billers bl ON b.biller_id = bl.id
        ${whereClause}
-       ORDER BY p.created_at DESC
+       ORDER BY ${orderBySql}
        LIMIT ? OFFSET ?`
     )
       .bind(...params, limit, offset)
@@ -232,7 +246,7 @@ paymentsRouter.post('/', async (request: IRequest, env: Env, ctx?: RequestContex
   const requestId = ctx?.requestId || generateId();
 
   try {
-    const body = await request.json();
+    const body = await request.json() as any;
     const errors = validatePaymentInput(body);
 
     if (errors.length > 0) {
@@ -371,10 +385,24 @@ paymentsRouter.post('/', async (request: IRequest, env: Env, ctx?: RequestContex
       .bind(id)
       .first();
 
+    const payment = formatPayment(created);
+
+    // Fan out to any registered webhook subscriptions. Delivery failures are
+    // recorded in the delivery log and never fail the payment itself.
+    const deliveries = await dispatchWebhookEvent(
+      env,
+      simulatedStatus === 'completed' ? 'payment.completed' : 'payment.failed',
+      payment
+    );
+
     return jsonResponse(
-      successResponse(formatPayment(created), { requestId, version: env.API_VERSION }),
+      successResponse(payment, { requestId, version: env.API_VERSION }),
       201,
-      { 'X-Request-Id': requestId, Location: `/v1/payments/${id}` }
+      {
+        'X-Request-Id': requestId,
+        Location: `/v1/payments/${id}`,
+        'X-Webhook-Deliveries': String(deliveries.length),
+      }
     );
   } catch (error: any) {
     console.error('Error creating payment:', error);
@@ -420,7 +448,7 @@ paymentsRouter.post('/:id/refund', async (request: IRequest, env: Env, ctx?: Req
       );
     }
 
-    const body = await request.json().catch(() => ({}));
+    const body = await request.json().catch(() => ({})) as any;
     const refundAmount = body.amount || payment.total_amount;
     const reason = body.reason || 'Customer requested refund';
     const now = getCurrentTimestamp();
@@ -614,7 +642,7 @@ paymentsRouter.delete('/:id', async (request: IRequest, env: Env, ctx?: RequestC
 // Helper Functions
 // ============================================
 
-function formatPayment(row: any): any {
+export function formatPayment(row: any): any {
   if (!row) return {};
 
   let paymentMethodDetails = row.payment_method_details;

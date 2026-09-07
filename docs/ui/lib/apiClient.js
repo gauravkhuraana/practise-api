@@ -153,6 +153,73 @@ export function createApiClient({ baseUrl, auth, getAuth, onResponseMeta, getRes
       return client.request('POST', path, { headers, body: payload });
     },
 
+    /**
+     * Low-level request that never throws and exposes the status line and
+     * headers. The protocol-feature lab needs to show 304s, 405s, 412s and
+     * response headers, none of which survive the throwing helpers above.
+     */
+    async raw(method, path, options = {}) {
+      const effectiveAuth = typeof getAuth === 'function' ? getAuth() : auth;
+      const url = applyQueryAuth(`${safeBase}${path}`, effectiveAuth);
+
+      const headers = {
+        Accept: 'application/json',
+        ...buildAuthHeaders(effectiveAuth),
+        ...(options.headers || {}),
+      };
+
+      const init = {
+        method,
+        headers,
+        body: options.body,
+        redirect: options.redirect || 'follow',
+        credentials: effectiveAuth?.type === 'cookie' ? 'include' : 'same-origin',
+      };
+
+      const startedAt = performance.now();
+      let res;
+      try {
+        res = await fetch(url, init);
+      } catch (error) {
+        return {
+          ok: false,
+          networkError: true,
+          status: 0,
+          statusText: String(error?.message || error),
+          headers: {},
+          body: null,
+          text: '',
+          durationMs: Math.round(performance.now() - startedAt),
+        };
+      }
+
+      const durationMs = Math.round(performance.now() - startedAt);
+      const responseHeaders = {};
+      res.headers.forEach((value, key) => {
+        responseHeaders[key] = value;
+      });
+
+      onResponseMeta?.(extractMeta(res.headers));
+
+      const text = res.status === 204 || res.status === 304 ? '' : await res.text().catch(() => '');
+      let body = null;
+      try {
+        body = text ? JSON.parse(text) : null;
+      } catch {
+        body = null;
+      }
+
+      return {
+        ok: res.ok,
+        status: res.status,
+        statusText: res.statusText,
+        headers: responseHeaders,
+        body,
+        text,
+        durationMs,
+      };
+    },
+
     // New method for file uploads (multipart/form-data)
     async upload(path, formData) {
       const effectiveAuth = typeof getAuth === 'function' ? getAuth() : auth;
