@@ -846,6 +846,11 @@ def test_create_user_verify_api():
       <section class="nav-cards">
         <h2>🎬 Start Practicing</h2>
         <div class="nav-grid">
+          <a href="#/api-lab" class="nav-card">
+            <span class="nav-icon">🔬</span>
+            <h3>API Lab</h3>
+            <p>QUERY, ETags, idempotency, async jobs, webhooks</p>
+          </a>
           <a href="#/practice" class="nav-card">
             <span class="nav-icon">🧪</span>
             <h3>UI Practice</h3>

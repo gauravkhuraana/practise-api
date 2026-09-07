@@ -21,7 +21,7 @@ const tokenHandler = async (request: IRequest, env: Env, ctx?: RequestContext) =
         body[key] = value;
       }
     } else if (contentType.includes('application/json')) {
-      body = await request.json();
+      body = await request.json() as any;
     } else {
       return jsonResponse(
         errorResponse(
@@ -48,7 +48,8 @@ const tokenHandler = async (request: IRequest, env: Env, ctx?: RequestContext) =
           expires_in: 3600,
           scope: 'read:all write:all',
           created_at: Math.floor(Date.now() / 1000),
-        }, 200, { 'X-Request-Id': requestId });
+          // OAuth token responses use the RFC 6749 shape, not the API envelope.
+        } as any, 200, { 'X-Request-Id': requestId });
       }
 
       return jsonResponse(
@@ -71,7 +72,8 @@ const tokenHandler = async (request: IRequest, env: Env, ctx?: RequestContext) =
           refresh_token: 'demo-refresh-token-789',
           scope: 'read:all write:all',
           created_at: Math.floor(Date.now() / 1000),
-        }, 200, { 'X-Request-Id': requestId });
+          // OAuth token responses use the RFC 6749 shape, not the API envelope.
+        } as any, 200, { 'X-Request-Id': requestId });
       }
 
       return jsonResponse(
@@ -93,7 +95,8 @@ const tokenHandler = async (request: IRequest, env: Env, ctx?: RequestContext) =
           refresh_token: 'demo-refresh-token-789',
           scope: 'read:all write:all',
           created_at: Math.floor(Date.now() / 1000),
-        }, 200, { 'X-Request-Id': requestId });
+          // OAuth token responses use the RFC 6749 shape, not the API envelope.
+        } as any, 200, { 'X-Request-Id': requestId });
       }
 
       return jsonResponse(

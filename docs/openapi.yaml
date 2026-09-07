@@ -59,18 +59,79 @@ info:
     - Used for file uploads: `Content-Type: multipart/form-data`
     - See `/v1/files/upload` endpoints
 
+    ## Request Tracing
+    All requests include an `X-Request-Id` header for tracing. You can provide your own via the request header.
+
+    ## The HTTP QUERY Method (NEW)
+    `QUERY` is a safe, idempotent method that carries a request body, so a search
+    can be expressed as structured JSON instead of a long query string. Because
+    some clients and intermediaries still reject unfamiliar verbs, three equivalent
+    forms are accepted:
+
+    ```
+    QUERY /v1/bills                                    # native
+    POST  /v1/bills/query                              # path fallback
+    POST  /v1/bills  + X-HTTP-Method-Override: QUERY   # header override
+    ```
+
+    All three run the same code and return the same body; `meta.querySource` reports
+    which one you used. Queryable resources: `billers`, `bills`, `payments`, `users`.
+    See `GET /v1/query-schema` for the operators and fields, or the **HTTP QUERY** tag below.
+
+    ## Conditional Requests & Caching (NEW)
+    - Single-resource `GET`s return `ETag` and `Last-Modified`
+    - `If-None-Match` with a matching ETag returns `304 Not Modified`
+    - `If-Match` or `If-Unmodified-Since` on `PUT`/`PATCH`/`DELETE` returns `412 Precondition Failed` when the resource has moved on
+    - The ETag from a `GET` can be sent straight back as `If-Match` - they are derived the same way
+
+    ## Idempotent Retries (NEW)
+    Send `Idempotency-Key` on `POST /v1/payments`. An identical retry replays the
+    original response with `Idempotency-Replayed: true`; the same key with a
+    different body is rejected with `409`. Keys live for 24 hours.
+
+    ## Async Operations (NEW)
+    `POST /v1/jobs` returns `202 Accepted` with `Location` and `Retry-After`.
+    Poll `GET /v1/jobs/{id}` until `status` reaches `completed` or `failed`.
+
+    ## Sorting, Sparse Fieldsets & Link Headers (NEW)
+    - `?sort=-amount,dueDate` - `-` prefix sorts descending; an unknown field returns `400`
+    - `?fields=id,amount,status` - trims the response body; `id` is always kept
+    - Paginated responses carry an RFC 8288 `Link` header (`first`/`prev`/`next`/`last`) and `X-Total-Count`
+
+    ## JSON Patch (NEW)
+    Send `Content-Type: application/json-patch+json` to any single-resource `PATCH`
+    with an RFC 6902 operation array (`add`, `remove`, `replace`, `move`, `copy`, `test`).
+    A failed `test` operation returns `409`; a bad pointer returns `400`.
+
+    ## Bulk Create (NEW)
+    `POST /v1/{resource}/bulk` accepts up to 50 items and always returns
+    `207 Multi-Status` with a per-item result.
+
+    ## Webhooks (NEW)
+    Register a callback at `/v1/webhooks`, then inspect every attempt in the
+    delivery log. Payloads are signed with
+    `X-Webhook-Signature: t=<unix>,v1=<hex HMAC-SHA256 of "<t>.<body>">`.
+
+    ## Simulation Endpoints (NEW)
+    `/v1/simulate/*` is public and exists for timeout, retry, redirect and
+    error-handling practice: delays, arbitrary status codes, redirect chains,
+    flaky responses, SSE streaming, malformed JSON, large payloads and a
+    request echo.
+
+    ## Method Discovery
+    `OPTIONS` on any resource returns `Allow`, plus `Accept-Query` and
+    `Accept-Patch` describing the body formats it takes. An unsupported method on a
+    known resource returns `405` with an `Allow` header rather than `404`.
+
     ## Rate Limiting
     - **Limit**: 100 requests per minute per IP
     - **Headers**: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
     - **429 Response**: Includes `Retry-After` header
 
-    ## Request Tracing
-    All requests include an `X-Request-Id` header for tracing. You can provide your own via the request header.
-
     ## Data Reset
     Demo data is reset weekly. Records created via API include a `createdBy` field for filtering.
 
-  version: 1.0.0
+  version: 1.1.0
   contact:
     name: API Support
     url: https://github.com/gauravkhuraana/APIAutomationSwagger
@@ -101,6 +162,20 @@ tags:
     description: User management
   - name: Files
     description: File upload and management (multipart/form-data)
+  - name: HTTP QUERY
+    description: >-
+      The HTTP QUERY method - a safe, idempotent request that carries a body.
+      Complex search criteria as JSON instead of a query string.
+  - name: Jobs
+    description: Async operations - 202 Accepted, Location, Retry-After and polling
+  - name: Bulk
+    description: Multi-item creation returning 207 Multi-Status
+  - name: Webhooks
+    description: Signed outbound callbacks with a delivery attempt log
+  - name: Simulation
+    description: >-
+      Delays, arbitrary status codes, redirects, streaming and malformed payloads
+      for timeout, retry and error-handling practice (no authentication required)
 
 paths:
   # ============================================
@@ -327,6 +402,9 @@ paths:
                         totalPages: 3
                         hasNext: true
                         hasPrev: false
+                        offset: 0
+                        nextCursor: null
+                        prevCursor: null
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -857,20 +935,37 @@ paths:
                     data:
                       id: pay-abc123
                       billId: bill-001
+                      userId: user-demo-001
+                      billerName: Airtel Postpaid
+                      billNickname: My Mobile Bill
+                      customerIdentifier: "9876543210"
                       status: completed
                       transactionId: TXN20251218ABC123
+                      referenceNumber: REF123456789012
                       amount:
                         value: 599.00
                         currency: INR
+                      convenienceFee: 0
                       totalAmount:
                         value: 599.00
                         currency: INR
+                      paymentMethod:
+                        id: pm-upi-001
+                        type: upi
+                        details: null
+                      processedAt: "2025-12-18T10:30:00.000Z"
+                      createdAt: "2025-12-18T10:30:00.000Z"
                 failed:
                   summary: Failed payment
                   value:
                     success: true
                     data:
                       id: pay-xyz789
+                      billId: bill-001
+                      userId: user-demo-001
+                      billerName: Airtel Postpaid
+                      billNickname: My Mobile Bill
+                      customerIdentifier: "9876543210"
                       status: failed
                       failure:
                         code: BANK_DECLINED
@@ -1622,6 +1717,867 @@ paths:
         '404':
           description: File not found
 
+  # ============================================
+  # HTTP QUERY
+  # ============================================
+  /v1/query-schema:
+    get:
+      tags: [HTTP QUERY]
+      summary: Describe the QUERY filter language
+      description: |
+        Returns the operators, logical combinators and queryable fields for every
+        resource that supports the HTTP QUERY method. Add `/v1/{resource}/query-schema`
+        for a single resource.
+      operationId: getQuerySchema
+      responses:
+        '200':
+          description: Query language description
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /v1/bills/query:
+    post:
+      tags: [HTTP QUERY]
+      summary: Search bills with a request body (QUERY)
+      description: |
+        **This is the path fallback for the HTTP QUERY method.**
+
+        `QUERY` is a safe, idempotent HTTP method that carries a request body, so a
+        search can be expressed as structured JSON instead of being squeezed into a
+        query string. OpenAPI 3.0 cannot describe a `query:` operation, so the path
+        fallback is documented here and is what "Try it out" will send.
+
+        All three of the following are handled by the same code and return the same body:
+
+        ```
+        QUERY /v1/bills                                      # native method
+        POST  /v1/bills/query                                # path fallback (this operation)
+        POST  /v1/bills  + X-HTTP-Method-Override: QUERY     # header override
+        ```
+
+        The response `meta.querySource` tells you which form was used, so a test can
+        assert that all three agree.
+
+        **Operators:** `eq` `ne` `gt` `gte` `lt` `lte` `in` `nin` `contains`
+        `startsWith` `endsWith` `between` `isNull`.
+        **Combinators:** `and`, `or`, `not`.
+        A bare value is shorthand for `eq`.
+      operationId: queryBills
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+            examples:
+              simple:
+                summary: Unpaid bills over 500
+                value:
+                  filter:
+                    status: { in: [pending, overdue] }
+                    amount: { gte: 500 }
+                  sort: ["-amount"]
+                  limit: 10
+              nested:
+                summary: Nested or / not with a projection
+                value:
+                  filter:
+                    and:
+                      - status: pending
+                      - or:
+                          - billerCategory: telecom
+                          - billerCategory: electricity
+                      - not:
+                          amount: { lt: 100 }
+                  sort: ["-dueDate", "amount"]
+                  fields: [id, amount, status, dueDate, billerName]
+                  page: 1
+                  limit: 20
+              empty:
+                summary: Empty body matches everything
+                value: {}
+      responses:
+        '200':
+          description: Matching resources
+          headers:
+            ETag:
+              schema: { type: string }
+              description: Weak validator over the result set; send back as If-None-Match
+            Link:
+              schema: { type: string }
+              description: RFC 8288 pagination links
+            X-Total-Count:
+              schema: { type: integer }
+            X-Query-Source:
+              schema:
+                type: string
+                enum: [query-method, method-override, query-path]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryResponse'
+        '304':
+          description: Not modified (If-None-Match matched)
+        '400':
+          description: Unknown field, unknown operator or malformed JSON
+        '415':
+          description: Unsupported Content-Type
+
+  /v1/billers/query:
+    post:
+      tags: [HTTP QUERY]
+      summary: Search billers with a request body (QUERY)
+      description: See `POST /v1/bills/query`. Native form is `QUERY /v1/billers`.
+      operationId: queryBillers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+            example:
+              filter:
+                category: { in: [telecom, broadband] }
+                isActive: true
+                displayName: { contains: air }
+              sort: [displayName]
+      responses:
+        '200':
+          description: Matching billers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryResponse'
+        '400':
+          description: Invalid query
+
+  /v1/payments/query:
+    post:
+      tags: [HTTP QUERY]
+      summary: Search payments with a request body (QUERY)
+      description: See `POST /v1/bills/query`. Native form is `QUERY /v1/payments`.
+      operationId: queryPayments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+            example:
+              filter:
+                status: { in: [completed, failed] }
+                totalAmount: { between: [100, 5000] }
+              sort: ["-createdAt"]
+      responses:
+        '200':
+          description: Matching payments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryResponse'
+        '400':
+          description: Invalid query
+
+  /v1/users/query:
+    post:
+      tags: [HTTP QUERY]
+      summary: Search users with a request body (QUERY)
+      description: See `POST /v1/bills/query`. Native form is `QUERY /v1/users`.
+      operationId: queryUsers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+            example:
+              filter:
+                kycStatus: verified
+                email: { endsWith: "@example.com" }
+              fields: [id, email, firstName, kycStatus]
+      responses:
+        '200':
+          description: Matching users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryResponse'
+        '400':
+          description: Invalid query
+
+  # ============================================
+  # ASYNC JOBS
+  # ============================================
+  /v1/jobs:
+    post:
+      tags: [Jobs]
+      summary: Start an async job (202 Accepted)
+      description: |
+        Returns `202 Accepted` immediately with a `Location` header pointing at the
+        job and a `Retry-After` hint. The job then moves through
+        `queued -> processing -> completed` (or `failed`) based on elapsed time, so
+        polling behaves like a real long-running operation.
+
+        Set `durationMs` to control how long it takes, and `shouldFail: true` to make
+        it end in `failed` - useful for testing error paths in a polling loop.
+      operationId: createJob
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [statement-export, bulk-payment, reconciliation, bill-import]
+                  default: statement-export
+                durationMs:
+                  type: integer
+                  minimum: 500
+                  maximum: 120000
+                  default: 4000
+                shouldFail:
+                  type: boolean
+                  default: false
+                payload:
+                  type: object
+            example:
+              type: statement-export
+              durationMs: 5000
+      responses:
+        '202':
+          description: Job accepted
+          headers:
+            Location:
+              schema: { type: string }
+              description: Poll this URL for status
+            Retry-After:
+              schema: { type: integer }
+              description: Suggested seconds between polls
+            X-Job-Id:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+        '400':
+          description: Invalid job type or malformed body
+    get:
+      tags: [Jobs]
+      summary: List jobs
+      operationId: listJobs
+      parameters:
+        - name: type
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [queued, processing, completed, failed, cancelled]
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10 }
+      responses:
+        '200':
+          description: Job list
+
+  /v1/jobs/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Jobs]
+      summary: Poll job status
+      description: |
+        While the job is still running the response carries a `Retry-After` header.
+        Once it finishes, `result` is populated (or `error` when it failed).
+      operationId: getJob
+      responses:
+        '200':
+          description: Current job state
+          headers:
+            Retry-After:
+              schema: { type: integer }
+              description: Present only while the job is not yet in a terminal state
+            X-Job-Status:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+        '404':
+          description: Job not found
+    delete:
+      tags: [Jobs]
+      summary: Cancel a job
+      operationId: cancelJob
+      responses:
+        '200':
+          description: Job cancelled
+        '404':
+          description: Job not found
+        '409':
+          description: Job already finished and cannot be cancelled
+
+  # ============================================
+  # BULK CREATE
+  # ============================================
+  /v1/billers/bulk:
+    post:
+      tags: [Bulk]
+      summary: Create many billers in one request (207 Multi-Status)
+      description: |
+        Each item is dispatched through the same handler a single create would use,
+        so validation and business rules are identical. The response is always
+        `207 Multi-Status` with a per-item result, making a partial failure visible
+        row by row rather than failing the whole batch.
+
+        Set `stopOnError: true` to abort at the first failure; the remaining items
+        come back with a `SKIPPED` error. Maximum 50 items per request.
+      operationId: bulkCreateBillers
+      requestBody:
+        $ref: '#/components/requestBodies/BulkCreateRequest'
+      responses:
+        '207':
+          description: Per-item results
+          headers:
+            X-Bulk-Succeeded:
+              schema: { type: integer }
+            X-Bulk-Failed:
+              schema: { type: integer }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkResponse'
+              example:
+                success: false
+                data:
+                  resource: billers
+                  summary: { total: 2, succeeded: 1, failed: 1 }
+                  results:
+                    - index: 0
+                      success: true
+                      status: 201
+                      id: biller-a1b2c3d4
+                      location: /v1/billers/biller-a1b2c3d4
+                    - index: 1
+                      success: false
+                      status: 400
+                      error:
+                        code: VALIDATION_ERROR
+                        message: Invalid biller data
+        '400':
+          description: Empty or malformed items array
+        '413':
+          description: More than 50 items
+
+  /v1/bills/bulk:
+    post:
+      tags: [Bulk]
+      summary: Create many bills in one request (207 Multi-Status)
+      description: |
+        Each item is dispatched through the same handler a single create would use,
+        so validation and business rules are identical. The response is always
+        `207 Multi-Status` with a per-item result, making a partial failure visible
+        row by row rather than failing the whole batch.
+
+        Set `stopOnError: true` to abort at the first failure; the remaining items
+        come back with a `SKIPPED` error. Maximum 50 items per request.
+      operationId: bulkCreateBills
+      requestBody:
+        $ref: '#/components/requestBodies/BulkCreateRequest'
+      responses:
+        '207':
+          description: Per-item results
+          headers:
+            X-Bulk-Succeeded:
+              schema: { type: integer }
+            X-Bulk-Failed:
+              schema: { type: integer }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkResponse'
+              example:
+                success: true
+                data:
+                  summary: { total: 2, succeeded: 2, failed: 0 }
+        '400':
+          description: Empty or malformed items array
+        '413':
+          description: More than 50 items
+
+  /v1/users/bulk:
+    post:
+      tags: [Bulk]
+      summary: Create many users in one request (207 Multi-Status)
+      description: |
+        Each item is dispatched through the same handler a single create would use,
+        so validation and business rules are identical. The response is always
+        `207 Multi-Status` with a per-item result, making a partial failure visible
+        row by row rather than failing the whole batch.
+
+        Set `stopOnError: true` to abort at the first failure; the remaining items
+        come back with a `SKIPPED` error. Maximum 50 items per request.
+      operationId: bulkCreateUsers
+      requestBody:
+        $ref: '#/components/requestBodies/BulkCreateRequest'
+      responses:
+        '207':
+          description: Per-item results
+          headers:
+            X-Bulk-Succeeded:
+              schema: { type: integer }
+            X-Bulk-Failed:
+              schema: { type: integer }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkResponse'
+              example:
+                success: true
+                data:
+                  summary: { total: 2, succeeded: 2, failed: 0 }
+        '400':
+          description: Empty or malformed items array
+        '413':
+          description: More than 50 items
+
+  /v1/payment-methods/bulk:
+    post:
+      tags: [Bulk]
+      summary: Create many payment methods in one request (207 Multi-Status)
+      description: |
+        Each item is dispatched through the same handler a single create would use,
+        so validation and business rules are identical. The response is always
+        `207 Multi-Status` with a per-item result, making a partial failure visible
+        row by row rather than failing the whole batch.
+
+        Set `stopOnError: true` to abort at the first failure; the remaining items
+        come back with a `SKIPPED` error. Maximum 50 items per request.
+      operationId: bulkCreatePaymentMethods
+      requestBody:
+        $ref: '#/components/requestBodies/BulkCreateRequest'
+      responses:
+        '207':
+          description: Per-item results
+          headers:
+            X-Bulk-Succeeded:
+              schema: { type: integer }
+            X-Bulk-Failed:
+              schema: { type: integer }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkResponse'
+              example:
+                success: true
+                data:
+                  summary: { total: 2, succeeded: 2, failed: 0 }
+        '400':
+          description: Empty or malformed items array
+        '413':
+          description: More than 50 items
+
+  # ============================================
+  # WEBHOOKS
+  # ============================================
+  /v1/webhooks:
+    post:
+      tags: [Webhooks]
+      summary: Register a webhook subscription
+      description: |
+        The `secret` is returned **only** on creation. Deliveries are signed with it
+        using `X-Webhook-Signature: t=<unix>,v1=<hex HMAC-SHA256 of "<t>.<body>">`,
+        which is the shape most payment providers use - so verifying it is realistic
+        practice.
+      operationId: createWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url:
+                  type: string
+                  format: uri
+                events:
+                  type: array
+                  items: { type: string }
+                  default: ["*"]
+                description: { type: string }
+                isActive: { type: boolean, default: true }
+            example:
+              url: https://webhook.site/your-unique-id
+              events: [payment.completed, payment.failed]
+              description: Payment notifications
+      responses:
+        '201':
+          description: Subscription created (includes the signing secret)
+          headers:
+            Location:
+              schema: { type: string }
+        '400':
+          description: Invalid URL or unknown event name
+    get:
+      tags: [Webhooks]
+      summary: List webhook subscriptions
+      operationId: listWebhooks
+      responses:
+        '200':
+          description: Subscription list
+
+  /v1/webhooks/events:
+    get:
+      tags: [Webhooks]
+      summary: List supported event types and the signature format
+      operationId: listWebhookEvents
+      responses:
+        '200':
+          description: Event catalogue
+
+  /v1/webhooks/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Webhooks]
+      summary: Get a webhook subscription
+      operationId: getWebhook
+      responses:
+        '200': { description: Subscription }
+        '404': { description: Not found }
+    patch:
+      tags: [Webhooks]
+      summary: Update a webhook subscription
+      operationId: updateWebhook
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url: { type: string }
+                events:
+                  type: array
+                  items: { type: string }
+                description: { type: string }
+                isActive: { type: boolean }
+      responses:
+        '200': { description: Updated }
+        '404': { description: Not found }
+    delete:
+      tags: [Webhooks]
+      summary: Delete a subscription and its delivery log
+      operationId: deleteWebhook
+      responses:
+        '204': { description: Deleted }
+        '404': { description: Not found }
+
+  /v1/webhooks/{id}/test:
+    post:
+      tags: [Webhooks]
+      summary: Fire a test delivery immediately
+      description: |
+        Sends one event to the subscription's URL and returns the delivery outcome,
+        including the status code the endpoint returned and the signature that was
+        sent. Responds `502` when the endpoint did not accept the delivery.
+      operationId: testWebhook
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                event: { type: string, default: test.ping }
+                data: { type: object }
+      responses:
+        '200':
+          description: Delivered
+          headers:
+            X-Delivery-Id:
+              schema: { type: string }
+        '404': { description: Subscription not found }
+        '502': { description: The endpoint rejected or did not answer the delivery }
+
+  /v1/webhooks/{id}/deliveries:
+    get:
+      tags: [Webhooks]
+      summary: Delivery attempt log
+      description: Every attempt, with status, response code, duration, signature and payload.
+      operationId: listWebhookDeliveries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string, enum: [delivered, failed] }
+        - name: event
+          in: query
+          schema: { type: string }
+      responses:
+        '200': { description: Delivery log }
+        '404': { description: Subscription not found }
+
+  # ============================================
+  # SIMULATION (no authentication required)
+  # ============================================
+  /v1/simulate:
+    get:
+      tags: [Simulation]
+      summary: Index of the simulation endpoints
+      description: Everything under `/v1/simulate` is public - no API key needed.
+      operationId: simulateIndex
+      security: []
+      responses:
+        '200': { description: Endpoint index }
+
+  /v1/simulate/delay/{ms}:
+    get:
+      tags: [Simulation]
+      summary: Respond after a delay
+      description: Delays up to 30000 ms. Use it to exercise client timeouts and waits.
+      operationId: simulateDelay
+      security: []
+      parameters:
+        - name: ms
+          in: path
+          required: true
+          schema: { type: integer, maximum: 30000 }
+      responses:
+        '200': { description: Delayed response }
+
+  /v1/simulate/timeout:
+    get:
+      tags: [Simulation]
+      summary: Hold the connection for 30 seconds
+      operationId: simulateTimeout
+      security: []
+      responses:
+        '200': { description: Returned only if your client did not time out }
+
+  /v1/simulate/status/{code}:
+    get:
+      tags: [Simulation]
+      summary: Respond with a given status code
+      description: |
+        Any code from 100 to 599. Codes that need them get the right companion
+        headers: `401` gets `WWW-Authenticate`, `405` gets `Allow`, `429` and `503`
+        get `Retry-After`. `204` and `304` correctly carry no body.
+      operationId: simulateStatus
+      security: []
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: integer, minimum: 100, maximum: 599 }
+      responses:
+        default: { description: The requested status code }
+
+  /v1/simulate/redirect/{n}:
+    get:
+      tags: [Simulation]
+      summary: Follow a chain of n redirects
+      operationId: simulateRedirect
+      security: []
+      parameters:
+        - name: n
+          in: path
+          required: true
+          schema: { type: integer, minimum: 0, maximum: 20 }
+      responses:
+        '302': { description: Another hop }
+        '200': { description: End of the chain }
+
+  /v1/simulate/redirect-to:
+    get:
+      tags: [Simulation]
+      summary: Redirect to an absolute URL
+      operationId: simulateRedirectTo
+      security: []
+      parameters:
+        - name: url
+          in: query
+          required: true
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: integer, enum: [301, 302, 303, 307, 308], default: 302 }
+      responses:
+        '302': { description: Redirect }
+
+  /v1/simulate/flaky:
+    get:
+      tags: [Simulation]
+      summary: Fail randomly, for retry logic
+      operationId: simulateFlaky
+      security: []
+      parameters:
+        - name: failureRate
+          in: query
+          schema: { type: number, minimum: 0, maximum: 1, default: 0.5 }
+      responses:
+        '200': { description: Succeeded }
+        '503': { description: 'Simulated transient failure, with Retry-After' }
+
+  /v1/simulate/malformed-json:
+    get:
+      tags: [Simulation]
+      summary: Truncated JSON served with a JSON content type
+      description: For asserting that your client surfaces parse failures rather than swallowing them.
+      operationId: simulateMalformedJson
+      security: []
+      responses:
+        '200': { description: Deliberately unparseable body }
+
+  /v1/simulate/empty:
+    get:
+      tags: [Simulation]
+      summary: 204 No Content
+      operationId: simulateEmpty
+      security: []
+      responses:
+        '204': { description: No content }
+
+  /v1/simulate/large:
+    get:
+      tags: [Simulation]
+      summary: Large JSON array
+      operationId: simulateLarge
+      security: []
+      parameters:
+        - name: items
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 10000, default: 1000 }
+      responses:
+        '200': { description: Large payload }
+
+  /v1/simulate/bytes/{n}:
+    get:
+      tags: [Simulation]
+      summary: Exactly n bytes of binary data
+      operationId: simulateBytes
+      security: []
+      parameters:
+        - name: n
+          in: path
+          required: true
+          schema: { type: integer, maximum: 5000000 }
+      responses:
+        '200':
+          description: Binary payload
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+
+  /v1/simulate/stream:
+    get:
+      tags: [Simulation]
+      summary: Server-sent events stream
+      operationId: simulateStream
+      security: []
+      parameters:
+        - name: events
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 5 }
+        - name: intervalMs
+          in: query
+          schema: { type: integer, minimum: 0, maximum: 5000, default: 500 }
+      responses:
+        '200':
+          description: text/event-stream
+          content:
+            text/event-stream:
+              schema: { type: string }
+
+  /v1/simulate/echo:
+    post:
+      tags: [Simulation]
+      summary: Echo the request back
+      description: |
+        Reflects method, URL, query parameters, headers, cookies and body.
+        Credentials (`Authorization`, `Cookie`, `X-API-Key`) come back redacted.
+        Accepts any method.
+      operationId: simulateEcho
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '200': { description: The request as the server saw it }
+
+  /v1/simulate/cache/{seconds}:
+    get:
+      tags: [Simulation]
+      summary: A cacheable response with ETag and max-age
+      operationId: simulateCache
+      security: []
+      parameters:
+        - name: seconds
+          in: path
+          required: true
+          schema: { type: integer, maximum: 86400 }
+      responses:
+        '200': { description: Cacheable body }
+        '304': { description: Not modified }
+
+  /v1/simulate/basic-auth/{user}/{pass}:
+    get:
+      tags: [Simulation]
+      summary: Basic auth challenge
+      operationId: simulateBasicAuth
+      security: []
+      parameters:
+        - name: user
+          in: path
+          required: true
+          schema: { type: string }
+        - name: pass
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Credentials matched }
+        '401': { description: Challenge or mismatch }
+
+  /v1/simulate/cookies/set:
+    get:
+      tags: [Simulation]
+      summary: Set cookies from query parameters
+      description: Every query parameter becomes a Set-Cookie header.
+      operationId: simulateSetCookies
+      security: []
+      responses:
+        '200': { description: Cookies set }
+
+  /v1/simulate/headers:
+    get:
+      tags: [Simulation]
+      summary: Reflect arbitrary response headers
+      description: Every query parameter whose name looks like a header is echoed back as one.
+      operationId: simulateHeaders
+      security: []
+      responses:
+        '200': { description: Headers reflected }
+
+
 # ============================================
 # COMPONENTS
 # ============================================
@@ -1802,7 +2758,153 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
 
+  requestBodies:
+    BulkCreateRequest:
+      description: |
+        Either a bare array of items, or an object with `items` and an optional
+        `stopOnError` flag. Maximum 50 items.
+      required: true
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - type: array
+                items: { type: object }
+              - type: object
+                properties:
+                  items:
+                    type: array
+                    items: { type: object }
+                  stopOnError:
+                    type: boolean
+                    default: false
+
   schemas:
+    # ============================================
+    # HTTP QUERY / async jobs / bulk
+    # ============================================
+    QueryRequest:
+      type: object
+      description: |
+        The body of an HTTP QUERY request. Every member is optional - an empty
+        object matches everything.
+      properties:
+        filter:
+          type: object
+          description: |
+            Field conditions, combined with AND unless nested under `or`/`not`.
+            A bare value is shorthand for `eq`, so `{"status": "pending"}` and
+            `{"status": {"eq": "pending"}}` are the same. Nesting is limited to
+            four levels.
+          additionalProperties: true
+          example:
+            status: { in: [pending, overdue] }
+            amount: { gte: 500, lte: 10000 }
+            or:
+              - billerCategory: telecom
+              - billerCategory: electricity
+        sort:
+          type: array
+          description: Field names, prefixed with `-` for descending.
+          items: { type: string }
+          example: ["-amount", "dueDate"]
+        fields:
+          type: array
+          description: Sparse fieldset. `id` is always included.
+          items: { type: string }
+          example: [id, amount, status]
+        page:
+          type: integer
+          minimum: 1
+          default: 1
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+        offset:
+          type: integer
+          minimum: 0
+          description: Alternative to `page`.
+
+    QueryResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: array
+          items: { type: object }
+        meta:
+          type: object
+          properties:
+            requestId: { type: string }
+            timestamp: { type: string, format: date-time }
+            version: { type: string }
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+            query:
+              type: object
+              description: The query as the server understood it, echoed back.
+            querySource:
+              type: string
+              enum: [query-method, method-override, query-path]
+
+    JobResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: object
+          properties:
+            id: { type: string }
+            type: { type: string }
+            status:
+              type: string
+              enum: [queued, processing, completed, failed, cancelled]
+            progress: { type: integer, minimum: 0, maximum: 100 }
+            statusUrl: { type: string }
+            result:
+              type: object
+              nullable: true
+              description: Present once the job completes successfully.
+            error:
+              type: object
+              nullable: true
+              properties:
+                code: { type: string }
+                message: { type: string }
+            createdAt: { type: string, format: date-time }
+            completedAt: { type: string, format: date-time, nullable: true }
+
+    BulkResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: True only when every item succeeded.
+        data:
+          type: object
+          properties:
+            resource: { type: string }
+            summary:
+              type: object
+              properties:
+                total: { type: integer }
+                succeeded: { type: integer }
+                failed: { type: integer }
+            results:
+              type: array
+              items:
+                type: object
+                properties:
+                  index: { type: integer }
+                  success: { type: boolean }
+                  status: { type: integer }
+                  id: { type: string }
+                  location: { type: string }
+                  data: { type: object }
+                  error: { type: object }
+
     # Base schemas
     Money:
       type: object
@@ -1859,6 +2961,28 @@ components:
         hasPrev:
           type: boolean
           example: false
+        offset:
+          type: integer
+          description: Current offset (0-based)
+          example: 0
+        nextCursor:
+          type: string
+          nullable: true
+          description: Cursor for next page (cursor-based pagination)
+        prevCursor:
+          type: string
+          nullable: true
+          description: Cursor for previous page (cursor-based pagination)
+      example:
+        page: 1
+        limit: 10
+        total: 100
+        totalPages: 10
+        hasNext: true
+        hasPrev: false
+        offset: 0
+        nextCursor: null
+        prevCursor: null
 
     ResponseMeta:
       type: object
@@ -1956,6 +3080,9 @@ components:
               type: string
             billerCount:
               type: integer
+            timestamp:
+              type: string
+              format: date-time
 
     # Auth
     TokenResponse:
@@ -2078,6 +3205,27 @@ components:
         updatedAt:
           type: string
           format: date-time
+      example:
+        id: biller-airtel-postpaid
+        name: airtel
+        displayName: Airtel Postpaid
+        category: telecom
+        logoUrl: https://example.com/logos/airtel.png
+        description: Airtel Postpaid Mobile Bills
+        supportedPaymentModes:
+          - upi
+          - credit_card
+          - debit_card
+          - net_banking
+        fetchBillSupported: true
+        partialPaymentAllowed: false
+        minAmount: 1
+        maxAmount: 50000
+        customerIdLabel: Mobile Number
+        customerIdPattern: "^[6-9][0-9]{9}$"
+        isActive: true
+        createdAt: "2025-12-18T10:30:00.000Z"
+        updatedAt: "2025-12-18T10:30:00.000Z"
 
     BillerInput:
       type: object
@@ -2193,6 +3341,8 @@ components:
           type: string
         billerName:
           type: string
+        billerCategory:
+          $ref: '#/components/schemas/BillerCategory'
         customerIdentifier:
           type: string
         customerName:
@@ -2228,6 +3378,26 @@ components:
         updatedAt:
           type: string
           format: date-time
+      example:
+        id: bill-001
+        userId: user-demo-001
+        billerId: biller-airtel-postpaid
+        billerName: Airtel Postpaid
+        billerCategory: telecom
+        customerIdentifier: "9876543210"
+        customerName: John Doe
+        nickname: My Mobile Bill
+        amount:
+          value: 599.00
+          currency: INR
+        dueDate: "2025-12-25"
+        billDate: "2025-12-01"
+        billPeriod: Dec 2025
+        status: pending
+        autoPay:
+          enabled: false
+        createdAt: "2025-12-18T10:30:00.000Z"
+        updatedAt: "2025-12-18T10:30:00.000Z"
 
     BillInput:
       type: object
@@ -2355,6 +3525,12 @@ components:
           type: string
         billerName:
           type: string
+        billNickname:
+          type: string
+          description: Nickname of the associated bill
+        customerIdentifier:
+          type: string
+          description: Customer identifier from the bill
         amount:
           $ref: '#/components/schemas/Money'
         convenienceFee:
@@ -2368,12 +3544,19 @@ components:
               type: string
             type:
               $ref: '#/components/schemas/PaymentMethodType'
+            details:
+              type: object
+              description: Additional payment method details
+              additionalProperties: true
         status:
           $ref: '#/components/schemas/PaymentStatus'
         transactionId:
           type: string
         referenceNumber:
           type: string
+        billerReference:
+          type: string
+          description: Reference number from the biller
         failure:
           type: object
           properties:
@@ -2387,6 +3570,34 @@ components:
         createdAt:
           type: string
           format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      example:
+        id: pay-abc123
+        billId: bill-001
+        userId: user-demo-001
+        billerName: Airtel Postpaid
+        billNickname: My Mobile Bill
+        customerIdentifier: "9876543210"
+        amount:
+          value: 599.00
+          currency: INR
+        convenienceFee: 0
+        totalAmount:
+          value: 599.00
+          currency: INR
+        paymentMethod:
+          id: pm-upi-001
+          type: upi
+          details: null
+        status: completed
+        transactionId: TXN20251218ABC123
+        referenceNumber: REF123456789012
+        billerReference: BLR1234567890
+        processedAt: "2025-12-18T10:30:00.000Z"
+        createdAt: "2025-12-18T10:30:00.000Z"
+        updatedAt: "2025-12-18T10:30:00.000Z"
 
     PaymentInput:
       type: object
@@ -2519,6 +3730,16 @@ components:
         updatedAt:
           type: string
           format: date-time
+      example:
+        id: pm-upi-001
+        userId: user-demo-001
+        type: upi
+        displayName: My UPI
+        isDefault: true
+        isActive: true
+        upiId: myupi@okaxis
+        createdAt: "2025-12-18T10:30:00.000Z"
+        updatedAt: "2025-12-18T10:30:00.000Z"
 
     PaymentMethodInput:
       type: object
@@ -2632,6 +3853,21 @@ components:
         updatedAt:
           type: string
           format: date-time
+      example:
+        id: user-demo-001
+        email: demo@example.com
+        phone: "+919876543210"
+        firstName: Demo
+        lastName: User
+        kycStatus: verified
+        address:
+          line1: 123 Main Street
+          city: Mumbai
+          state: Maharashtra
+          postalCode: "400001"
+          country: IN
+        createdAt: "2025-12-18T10:30:00.000Z"
+        updatedAt: "2025-12-18T10:30:00.000Z"
 
     UserInput:
       type: object

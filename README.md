@@ -72,6 +72,8 @@ Follow this logical sequence to understand and test the complete bill payment wo
 | **PATCH** | Partial update | `PATCH /v1/bills/{id}` |
 | **DELETE** | Remove resources | `DELETE /v1/payment-methods/{id}` |
 | **HEAD** | Check existence | `HEAD /v1/billers/{id}` |
+| **OPTIONS** | Discover methods | `OPTIONS /v1/bills` → `Allow`, `Accept-Query`, `Accept-Patch` |
+| **QUERY** ✨ | Search with a JSON body | `QUERY /v1/bills` with a filter body |
 
 ### 🔍 Query Parameters & Filtering
 
@@ -83,6 +85,9 @@ Follow this logical sequence to understand and test the complete bill payment wo
 | **Filter by Category** | Billers | `GET /v1/billers?category=telecom` |
 | **Date Range Filter** | Bills, Payments | `GET /v1/bills?due_after=2025-01-01` |
 | **Boolean Filter** | Billers, Payment Methods | `GET /v1/billers?is_active=true` |
+| **Sorting** ✨ | Billers, Bills, Payments, Users | `GET /v1/bills?sort=-amount,dueDate` |
+| **Sparse Fieldsets** ✨ | Any endpoint | `GET /v1/bills?fields=id,amount,status` |
+| **Link Header** ✨ | All list endpoints | `Link: <...page=2>; rel="next"` + `X-Total-Count` |
 
 ### ❌ Negative Testing Scenarios
 
@@ -96,6 +101,12 @@ Follow this logical sequence to understand and test the complete bill payment wo
 | **409 Duplicate** | `POST /v1/users` | Create user with existing email |
 | **429 Rate Limited** | Any endpoint | Send 100+ requests/minute |
 | **Payment Failure** | `POST /v1/payments` | ~10% of payments fail randomly |
+| **405 Method Not Allowed** ✨ | Any resource | `PUT /v1/billers` (collection, not item) — returns `Allow` |
+| **412 Precondition Failed** ✨ | `PATCH /v1/billers/{id}` | Send a stale `If-Match: "wrong-etag"` |
+| **415 Unsupported Media Type** ✨ | `QUERY /v1/bills` | Send `Content-Type: text/plain` |
+| **409 Idempotency Conflict** ✨ | `POST /v1/payments` | Reuse an `Idempotency-Key` with a different body |
+| **Any status you like** ✨ | `/v1/simulate/status/{code}` | `GET /v1/simulate/status/418` |
+| **Broken JSON** ✨ | `/v1/simulate/malformed-json` | Truncated body served as `application/json` |
 
 ### 🎲 Special Test Scenarios
 
@@ -108,8 +119,233 @@ Follow this logical sequence to understand and test the complete bill payment wo
 | **Cancel Payment** | Payment lifecycle | Create payment, then cancel before completion |
 | **KYC Verification** | User workflow | `POST /v1/users/{id}/verify-kyc` |
 | **Nested Resources** | User relationships | `GET /v1/users/{id}/bills`, `/payment-methods`, `/transactions` |
+| **HTTP QUERY** ✨ | Search with a request body | `QUERY /v1/bills` — see the section below |
+| **Conditional GET** ✨ | Caching / `304` | `GET` a biller, resend its `ETag` as `If-None-Match` |
+| **Optimistic Locking** ✨ | Lost-update prevention | Send `If-Match` on `PATCH`; a stale tag gives `412` |
+| **Idempotent Retry** ✨ | Duplicate-charge prevention | Repeat `POST /v1/payments` with the same `Idempotency-Key` |
+| **Async Polling** ✨ | `202` → poll → result | `POST /v1/jobs` then poll `GET /v1/jobs/{id}` |
+| **JSON Patch** ✨ | RFC 6902 | `PATCH` with `Content-Type: application/json-patch+json` |
+| **Bulk Create** ✨ | Partial failure | `POST /v1/billers/bulk` → `207 Multi-Status` |
+| **Webhooks** ✨ | Signed callbacks | Register at `/v1/webhooks`, then read the delivery log |
+| **Timeouts & Retries** ✨ | Client resilience | `/v1/simulate/delay/{ms}`, `/v1/simulate/flaky` |
+| **Redirect Following** ✨ | Client config | `GET /v1/simulate/redirect/5` |
+| **SSE Streaming** ✨ | Event streams | `GET /v1/simulate/stream?events=5` |
 
 ---
+
+---
+
+## 🔎 The HTTP QUERY Method
+
+`QUERY` is a safe, idempotent HTTP method that carries a request body. It exists
+because complex searches do not fit comfortably in a query string: once you need
+ranges, `OR` groups and a list of twenty IDs, a URL becomes unreadable and starts
+bumping into length limits. `QUERY` keeps the semantics of `GET` — no side
+effects, cacheable, safe to retry — while letting the criteria be structured JSON.
+
+Some clients and proxies still reject verbs they do not recognise, so this API
+accepts three equivalent forms. All three run the same code and return the same
+body; `meta.querySource` tells you which one you used.
+
+```bash
+# 1. Native method
+curl -X QUERY https://<host>/v1/bills \
+  -H "X-API-Key: demo-api-key-123" \
+  -H "Content-Type: application/json" \
+  -d '{"filter": {"status": "pending"}}'
+
+# 2. Path fallback  (this is what Swagger UI's "Try it out" sends)
+curl -X POST https://<host>/v1/bills/query \
+  -H "X-API-Key: demo-api-key-123" \
+  -H "Content-Type: application/json" \
+  -d '{"filter": {"status": "pending"}}'
+
+# 3. Header override
+curl -X POST https://<host>/v1/bills \
+  -H "X-API-Key: demo-api-key-123" \
+  -H "X-HTTP-Method-Override: QUERY" \
+  -H "Content-Type: application/json" \
+  -d '{"filter": {"status": "pending"}}'
+```
+
+**Queryable resources:** `billers`, `bills`, `payments`, `users`.
+Call `GET /v1/query-schema` (or `GET /v1/{resource}/query-schema`) for the full
+field list.
+
+### Request body
+
+```json
+{
+  "filter": {
+    "status":  { "in": ["pending", "overdue"] },
+    "amount":  { "gte": 500, "lte": 10000 },
+    "or": [
+      { "billerCategory": "telecom" },
+      { "billerCategory": "electricity" }
+    ],
+    "not": { "customerName": { "isNull": true } }
+  },
+  "sort":   ["-amount", "dueDate"],
+  "fields": ["id", "amount", "status", "dueDate"],
+  "page":   1,
+  "limit":  20
+}
+```
+
+| Member | Purpose |
+|--------|---------|
+| `filter` | Field conditions, AND-ed together unless nested under `or` / `not` |
+| `sort` | Field names; `-` prefix sorts descending |
+| `fields` | Sparse fieldset — `id` is always kept |
+| `page` / `limit` / `offset` | Pagination (max `limit` is 100) |
+
+### Operators
+
+| Operator | Meaning | Example |
+|----------|---------|---------|
+| `eq` | Equal (also the shorthand for a bare value) | `{"status": "paid"}` |
+| `ne` | Not equal | `{"status": {"ne": "cancelled"}}` |
+| `gt` `gte` `lt` `lte` | Comparisons | `{"amount": {"gte": 500}}` |
+| `in` `nin` | In / not in a list | `{"status": {"in": ["pending","overdue"]}}` |
+| `contains` `startsWith` `endsWith` | Substring matching | `{"displayName": {"contains": "air"}}` |
+| `between` | Inclusive range | `{"amount": {"between": [100, 500]}}` |
+| `isNull` | Null check | `{"customerName": {"isNull": true}}` |
+| `and` `or` `not` | Combinators (arrays for `and` / `or`) | see above |
+
+### What to assert on
+
+- `200` with the envelope you already know, plus `meta.query` echoing how the
+  server interpreted your request
+- `ETag` on the result set — resend it as `If-None-Match` to get a `304`
+- `Link` and `X-Total-Count` headers for pagination
+- `400` with per-member `details` for an unknown field or operator
+- `415` when `Content-Type` is not a JSON flavour
+- `405` when you send `QUERY` to a resource that does not support it
+
+> **A note on deployment:** Cloudflare Workers handles the `QUERY` verb, but
+> corporate proxies and some HTTP clients still refuse unknown methods. If a
+> native `QUERY` fails in your environment, the two POST forms above are there
+> for exactly that reason — and comparing the three is itself a useful test.
+
+---
+
+## ⚡ Feature Cheat Sheet
+
+Everything below is new alongside the existing CRUD surface.
+
+### Conditional requests
+
+```bash
+# Grab a validator
+ETAG=$(curl -sD- -o /dev/null https://<host>/v1/billers/biller-airtel-postpaid \
+  -H "X-API-Key: demo-api-key-123" | grep -i '^etag:' | cut -d' ' -f2 | tr -d '\r')
+
+# 304 Not Modified
+curl -i https://<host>/v1/billers/biller-airtel-postpaid \
+  -H "X-API-Key: demo-api-key-123" -H "If-None-Match: $ETAG"
+
+# 412 Precondition Failed - someone else changed it first
+curl -i -X PATCH https://<host>/v1/billers/biller-airtel-postpaid \
+  -H "X-API-Key: demo-api-key-123" -H 'Content-Type: application/json' \
+  -H 'If-Match: "stale-etag"' -d '{"description": "nope"}'
+```
+
+The ETag from a `GET` can be sent straight back as `If-Match` — both are derived
+from the stored row version, so they always agree.
+
+### Idempotency
+
+```bash
+KEY=$(uuidgen)
+# Send this twice: the second call replays the first response
+curl -i -X POST https://<host>/v1/payments \
+  -H "X-API-Key: demo-api-key-123" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: $KEY" \
+  -d '{"billId":"bill-002","amount":100,"paymentMethodId":"pm-upi-001","paymentMethodType":"upi"}'
+```
+
+Look for `Idempotency-Replayed: true` and an identical payment `id`. Reusing the
+key with a *different* body returns `409`.
+
+### Async jobs
+
+```bash
+# 202 Accepted, with Location and Retry-After
+curl -i -X POST https://<host>/v1/jobs \
+  -H "X-API-Key: demo-api-key-123" -H 'Content-Type: application/json' \
+  -d '{"type":"statement-export","durationMs":5000}'
+
+# Poll until status is completed (add "shouldFail": true to test the error path)
+curl https://<host>/v1/jobs/<job-id> -H "X-API-Key: demo-api-key-123"
+```
+
+### JSON Patch (RFC 6902)
+
+```bash
+curl -X PATCH https://<host>/v1/billers/biller-jio-prepaid \
+  -H "X-API-Key: demo-api-key-123" \
+  -H 'Content-Type: application/json-patch+json' \
+  -d '[
+    {"op": "test",    "path": "/category",    "value": "telecom"},
+    {"op": "replace", "path": "/description", "value": "Updated via JSON Patch"},
+    {"op": "replace", "path": "/maxAmount",   "value": 25000}
+  ]'
+```
+
+A failed `test` returns `409`; a pointer that does not resolve returns `400`.
+
+### Bulk create
+
+```bash
+curl -X POST https://<host>/v1/billers/bulk \
+  -H "X-API-Key: demo-api-key-123" -H 'Content-Type: application/json' \
+  -d '{"items": [
+        {"name":"acme-power","displayName":"Acme Power","category":"electricity"},
+        {"name":"bad-one","displayName":"Bad","category":"NOT_A_CATEGORY"}
+      ]}'
+```
+
+Always `207 Multi-Status`, with `summary` counts and a per-item `status`, so you
+can assert that item 0 succeeded and item 1 failed validation.
+
+### Webhooks
+
+```bash
+# Register (the secret is returned only here)
+curl -X POST https://<host>/v1/webhooks \
+  -H "X-API-Key: demo-api-key-123" -H 'Content-Type: application/json' \
+  -d '{"url":"https://webhook.site/your-id","events":["payment.completed"]}'
+
+# Fire a test delivery, then read the attempt log
+curl -X POST https://<host>/v1/webhooks/<id>/test -H "X-API-Key: demo-api-key-123"
+curl https://<host>/v1/webhooks/<id>/deliveries  -H "X-API-Key: demo-api-key-123"
+```
+
+Deliveries are signed `X-Webhook-Signature: t=<unix>,v1=<hex HMAC-SHA256 of "<t>.<body>">`
+— the same shape Stripe and friends use, so verifying it is realistic practice.
+Creating a payment fires `payment.completed` or `payment.failed` automatically.
+
+### Simulation endpoints (no auth)
+
+| Endpoint | What it does |
+|----------|--------------|
+| `GET /v1/simulate/delay/{ms}` | Responds after a delay, up to 30s |
+| `GET /v1/simulate/timeout` | Holds the connection for the full 30s |
+| `ANY /v1/simulate/status/{code}` | Any status from 100–599, with the right companion headers |
+| `GET /v1/simulate/redirect/{n}` | A chain of `n` 302s |
+| `GET /v1/simulate/redirect-to?url=` | Redirect anywhere; `?status=` picks 301/302/303/307/308 |
+| `GET /v1/simulate/flaky?failureRate=0.5` | Random `503` with `Retry-After` |
+| `GET /v1/simulate/malformed-json` | Truncated body served as `application/json` |
+| `GET /v1/simulate/empty` | `204 No Content` |
+| `GET /v1/simulate/large?items=1000` | A large JSON array |
+| `GET /v1/simulate/bytes/{n}` | Exactly `n` bytes of binary |
+| `GET /v1/simulate/stream?events=5` | Server-sent events |
+| `ANY /v1/simulate/echo` | Reflects method, headers, cookies, query and body (credentials redacted) |
+| `GET /v1/simulate/cache/{seconds}` | Cacheable response with `ETag` and `max-age` |
+| `GET /v1/simulate/basic-auth/{user}/{pass}` | `401` challenge unless the credentials match |
+| `GET /v1/simulate/cookies/set?a=1&b=2` | Sets cookies from query parameters |
+| `GET /v1/simulate/headers?X-Custom=1` | Reflects arbitrary response headers |
+
 
 ## 🛠️ Quick Reference - Demo Data
 
@@ -194,15 +430,21 @@ curl -X POST \
 | **Payments** | `/v1/payments` | Payment processing with simulated success/failure |
 | **Payment Methods** | `/v1/payment-methods` | UPI, cards, net banking, wallets |
 | **Users** | `/v1/users` | User management with nested resources |
+| **Jobs** ✨ | `/v1/jobs` | Async operations — `202 Accepted` and polling |
+| **Webhooks** ✨ | `/v1/webhooks` | Signed outbound callbacks with a delivery log |
+| **Simulation** ✨ | `/v1/simulate` | Delays, status codes, redirects, streaming (no auth) |
+| **Query schema** ✨ | `/v1/query-schema` | Describes the QUERY filter language |
 
 ### HTTP Methods Supported
 
-- `GET` - Retrieve resources (with pagination, filtering)
+- `GET` - Retrieve resources (with pagination, filtering, sorting, sparse fieldsets)
 - `POST` - Create new resources
 - `PUT` - Full update (replace)
-- `PATCH` - Partial update
+- `PATCH` - Partial update (merge, or RFC 6902 JSON Patch)
 - `DELETE` - Remove resources
 - `HEAD` - Check resource existence
+- `OPTIONS` - Discover supported methods and body formats
+- `QUERY` ✨ - Search using a request body (safe and idempotent)
 
 ## 🔧 Local Development
 
@@ -353,6 +595,22 @@ transactions (id, payment_id, type, amount, status, description, ...)
 - `X-RateLimit-*` headers
 - `429 Too Many Requests` with `Retry-After`
 
+### ✅ Modern HTTP Semantics ✨
+- The `QUERY` method, with method-override and path fallbacks
+- `ETag` / `Last-Modified`, `If-None-Match` (`304`) and `If-Match` (`412`)
+- `Idempotency-Key` replay protection on payment creation
+- `202 Accepted` + `Location` + `Retry-After` async jobs
+- RFC 8288 `Link` header pagination and `X-Total-Count`
+- RFC 6902 JSON Patch, and `207 Multi-Status` bulk creation
+- Proper `405` with `Allow` instead of a bare `404`
+
+### ✅ Resilience Testing ✨
+- Configurable delays and a 30-second timeout endpoint
+- Any status code on demand, with the right companion headers
+- Redirect chains, flaky endpoints and malformed payloads
+- Server-sent events and large binary responses
+- A request echo that reflects headers, cookies, query and body
+
 ## 📦 Project Structure
 
 ```
@@ -362,14 +620,27 @@ APIAutomation/
 │   │   ├── index.ts          # Main entry point
 │   │   ├── types.ts          # TypeScript interfaces
 │   │   ├── utils.ts          # Helper functions
+│   │   ├── lib/              # Protocol-level building blocks
+│   │   │   ├── conditional.ts    # ETag, If-Match / If-None-Match
+│   │   │   ├── http.ts           # ETags, Link header, 405 helpers
+│   │   │   ├── idempotency.ts    # Idempotency-Key storage and replay
+│   │   │   ├── jsonPatch.ts      # RFC 6902
+│   │   │   ├── query.ts          # QUERY filter DSL -> SQL
+│   │   │   └── resources.ts      # Queryable field registry
 │   │   ├── routes/           # Route handlers
 │   │   │   ├── auth.ts
 │   │   │   ├── billers.ts
 │   │   │   ├── bills.ts
+│   │   │   ├── bulk.ts           # 207 Multi-Status bulk create
+│   │   │   ├── files.ts
 │   │   │   ├── health.ts
+│   │   │   ├── jobs.ts           # 202 + polling
 │   │   │   ├── payment-methods.ts
 │   │   │   ├── payments.ts
-│   │   │   └── users.ts
+│   │   │   ├── query.ts          # HTTP QUERY handler
+│   │   │   ├── simulate.ts       # Chaos / resilience endpoints
+│   │   │   ├── users.ts
+│   │   │   └── webhooks.ts       # Signed callbacks + delivery log
 │   │   ├── middleware/       # Middleware
 │   │   │   ├── auth.ts
 │   │   │   ├── cors.ts

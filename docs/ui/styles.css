@@ -1000,3 +1000,157 @@ th {
 .mixed-scenarios .scenario-card {
   border-left: 4px solid var(--warning);
 }
+
+/* ============================================
+   API Lab
+   ============================================ */
+
+.lab-hero {
+  margin-bottom: var(--space-4);
+}
+
+.lab-hero h1 {
+  margin: 0 0 var(--space-1);
+  font-size: 26px;
+}
+
+.lab-hero p {
+  max-width: 68ch;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.lab-page .card {
+  margin-bottom: var(--space-4);
+}
+
+.lab-page .card > .muted {
+  max-width: 74ch;
+  line-height: 1.6;
+  margin-bottom: var(--space-3);
+}
+
+.lab-page code {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1px 5px;
+  font-size: 12px;
+}
+
+.lab-controls {
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-2);
+}
+
+.lab-controls .field {
+  min-width: 220px;
+}
+
+.lab-textarea {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.lab-buttons {
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.lab-output {
+  margin-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+}
+
+.lab-step {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-2);
+  background: var(--panel);
+}
+
+.lab-step__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-1);
+}
+
+.lab-step__label {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.lab-step__req {
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 2px 6px;
+  overflow-wrap: anywhere;
+}
+
+.lab-step__note {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.55;
+  margin: 0 0 var(--space-2);
+  max-width: 78ch;
+}
+
+.lab-step__note--bad {
+  color: var(--danger);
+}
+
+.lab-step__headers {
+  margin-bottom: var(--space-2);
+}
+
+.lab-step__headers .kv__row {
+  grid-template-columns: 180px 1fr;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.lab-step__body {
+  max-height: 320px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  .lab-step__headers .kv__row,
+  .kv__row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
+/* Status badges inside the lab need the full traffic-light range. The shared
+   .badge--warn / .badge--danger rules are colourless, so give them meaning here
+   without changing how badges look on the other pages. */
+.lab-step .badge--ok {
+  background: var(--success-light);
+  color: var(--success);
+  border-color: var(--success);
+}
+
+.lab-step .badge--warn {
+  background: var(--warning-light);
+  color: var(--warning);
+  border-color: var(--warning);
+}
+
+.lab-step .badge--danger {
+  background: var(--danger-light);
+  color: var(--danger);
+  border-color: var(--danger);
+}

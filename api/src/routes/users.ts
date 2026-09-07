@@ -13,6 +13,8 @@ import {
   getCurrentTimestamp,
   formatResponse,
 } from '../utils';
+import { parseListOptions } from '../lib/query';
+import { usersResource } from '../lib/resources';
 
 export const usersRouter = Router({ base: '/v1/users' });
 
@@ -23,6 +25,17 @@ usersRouter.get('/', async (request: IRequest, env: Env, ctx?: RequestContext) =
   const requestId = ctx?.requestId || generateId();
   const url = new URL(request.url);
   const { page, limit, offset, mode } = parsePaginationParams(url);
+  // Optional ?sort= and ?fields= support, shared with the QUERY method.
+  const listOptions = parseListOptions(usersResource, url);
+  if (listOptions.issues.length > 0) {
+    return jsonResponse(
+      errorResponse('VALIDATION_ERROR', 'Invalid sort or fields parameter', requestId, listOptions.issues),
+      400,
+      { 'X-Request-Id': requestId }
+    );
+  }
+  const orderBySql = listOptions.orderBy || 'created_at DESC';
+
 
   const kycStatus = url.searchParams.get('kyc_status');
   const search = url.searchParams.get('search');
@@ -54,7 +67,7 @@ usersRouter.get('/', async (request: IRequest, env: Env, ctx?: RequestContext) =
     const total = countResult?.count || 0;
 
     const users = await env.DB.prepare(
-      `SELECT * FROM users ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`
+      `SELECT * FROM users ${whereClause} ORDER BY ${orderBySql} LIMIT ? OFFSET ?`
     )
       .bind(...params, limit, offset)
       .all();
@@ -338,7 +351,7 @@ usersRouter.post('/', async (request: IRequest, env: Env, ctx?: RequestContext) 
   const requestId = ctx?.requestId || generateId();
 
   try {
-    const body = await request.json();
+    const body = await request.json() as any;
     const errors = validateUserInput(body, true);
 
     if (errors.length > 0) {
@@ -442,7 +455,7 @@ usersRouter.put('/:id', async (request: IRequest, env: Env, ctx?: RequestContext
       );
     }
 
-    const body = await request.json();
+    const body = await request.json() as any;
     const errors = validateUserInput(body, true);
 
     if (errors.length > 0) {
@@ -530,7 +543,7 @@ usersRouter.patch('/:id', async (request: IRequest, env: Env, ctx?: RequestConte
       );
     }
 
-    const body = await request.json();
+    const body = await request.json() as any;
     const errors = validateUserInput(body, false);
 
     if (errors.length > 0) {
@@ -721,7 +734,7 @@ usersRouter.post('/:id/verify-kyc', async (request: IRequest, env: Env, ctx?: Re
       );
     }
 
-    const body = await request.json().catch(() => ({}));
+    const body = await request.json().catch(() => ({})) as any;
     const newStatus = body.status || 'verified';
     const validStatuses = ['pending', 'verified', 'rejected'];
 
@@ -776,7 +789,7 @@ usersRouter.post('/:id/verify-kyc', async (request: IRequest, env: Env, ctx?: Re
 // Helper Functions
 // ============================================
 
-function formatUser(row: any): Partial<User> {
+export function formatUser(row: any): Partial<User> {
   if (!row) return {};
 
   return {

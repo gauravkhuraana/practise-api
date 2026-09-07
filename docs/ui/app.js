@@ -10,6 +10,7 @@ import { renderPayments } from './views/payments.js';
 import { renderPaymentMethods } from './views/paymentMethods.js';
 import { renderPractice } from './views/practice.js';
 import { renderScenarios } from './views/scenarios.js';
+import { renderApiLab } from './views/apiLab.js';
 
 const settings = loadSettings();
 
@@ -125,6 +126,7 @@ router.add('/users', (outlet) => renderUsers(outlet, ctx));
 router.add('/billers', (outlet) => renderBillers(outlet, ctx));
 router.add('/settings', (outlet) => renderSettings(outlet, ctx));
 router.add('/practice', (outlet) => renderPractice(outlet, ctx));
+router.add('/api-lab', (outlet) => renderApiLab(outlet, ctx));
 
 router.start('/scenarios');
 

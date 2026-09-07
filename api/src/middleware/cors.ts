@@ -2,7 +2,7 @@
 
 import { Env, RequestContext } from '../types';
 
-const DEFAULT_ALLOWED_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
+const DEFAULT_ALLOWED_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'QUERY'];
 const DEFAULT_ALLOWED_HEADERS = [
   'Content-Type',
   'Authorization',
@@ -12,6 +12,16 @@ const DEFAULT_ALLOWED_HEADERS = [
   'Accept',
   'Accept-Language',
   'Origin',
+  // Conditional requests
+  'If-Match',
+  'If-None-Match',
+  'If-Modified-Since',
+  'If-Unmodified-Since',
+  // Idempotent retries
+  'Idempotency-Key',
+  // Method override for clients that cannot send QUERY
+  'X-HTTP-Method-Override',
+  'Prefer',
 ];
 const DEFAULT_EXPOSED_HEADERS = [
   'X-Request-Id',
@@ -20,6 +30,27 @@ const DEFAULT_EXPOSED_HEADERS = [
   'X-RateLimit-Reset',
   'Retry-After',
   'Content-Length',
+  // Conditional requests and caching
+  'ETag',
+  'Last-Modified',
+  'Cache-Control',
+  // Pagination and resource discovery
+  'Link',
+  'Location',
+  'Allow',
+  'Accept-Query',
+  'Accept-Patch',
+  'X-Total-Count',
+  // Feature-specific signals
+  'Idempotency-Key',
+  'Idempotency-Replayed',
+  'X-Query-Source',
+  'X-Job-Id',
+  'X-Job-Status',
+  'X-Delivery-Id',
+  'X-Bulk-Succeeded',
+  'X-Bulk-Failed',
+  'X-Response-Time-Ms',
 ];
 
 export function corsHeaders(env: Env, origin?: string | null): Record<string, string> {

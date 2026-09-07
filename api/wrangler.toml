@@ -7,6 +7,9 @@ compatibility_date = "2024-01-01"
 binding = "DB"
 database_name = "billpay-db"
 database_id = "322d3551-db33-4d47-999a-4383d0564f92"
+# Migrations live alongside the source rather than in a top-level ./migrations
+# folder, so wrangler needs to be told where to look.
+migrations_dir = "src/db/migrations"
 
 # Environment variables
 [vars]
