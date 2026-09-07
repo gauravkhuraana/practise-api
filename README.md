@@ -242,34 +242,50 @@ worth a test each:
 
 ### How QUERY is described in the OpenAPI spec
 
-The spec is **OpenAPI 3.2.0**, which is the first version able to describe a
-non-standard verb — via `additionalOperations`, keyed by the uppercase method
-name:
+The spec is **OpenAPI 3.2.0**, the first version able to describe QUERY at all.
+3.2 gives it a dedicated fixed field on the Path Item, right alongside `get` and
+`post`:
 
 ```yaml
 /v1/bills:
   get: ...
   post: ...
-  additionalOperations:
-    QUERY:
-      summary: Search bills with a request body (native QUERY)
-      requestBody: ...
+  query:
+    summary: Search bills with a request body (native QUERY)
+    requestBody: ...
 ```
 
-There is a catch worth knowing, because it looks like a bug otherwise:
-**Swagger UI does not render `additionalOperations` yet.** It parses a 3.2
-document without complaint, then shows only `get` and `post` — the QUERY
-operation is silently invisible. Redocly *does* validate it (lint rules resolve
-against `#/paths/~1v1~1bills/additionalOperations/QUERY`).
+Two traps worth knowing, because both look like bugs from the outside:
 
-So both forms are in the spec on purpose:
+**Do not put QUERY under `additionalOperations`.** That map exists for methods
+with no fixed field of their own (`LINK`, `COPY`, and friends), and the spec is
+explicit that it *"MUST NOT contain any entry for the methods that can be
+defined by other fixed fields"*. Since `query` is a fixed field, QUERY does not
+belong there. Validators will not necessarily catch this — Redocly happily lints
+either shape — but Swagger UI silently renders nothing for
+`additionalOperations`, so the operation just disappears from your docs.
 
-| Form | Purpose |
-|------|---------|
-| `additionalOperations.QUERY` | The truthful description. Validated by Redocly and any 3.2-aware tooling. |
-| `POST /v1/{resource}/query` | A real operation Swagger UI can render and "Try it out" can execute. |
+**Swagger UI renders `query:` but will not execute it.** You get a proper
+purple `QUERY` block with the request body, examples and responses — but no
+"Try it out" / Execute button, which standard methods do get.
 
-Nothing is duplicated at runtime — both describe the same handler.
+That is exactly why the `POST /v1/{resource}/query` fallbacks stay in the spec:
+
+| Form | Renders | Executable in Swagger UI |
+|------|---------|--------------------------|
+| `query:` on the path item | ✅ as a QUERY block | ❌ documentation only |
+| `POST /v1/{resource}/query` | ✅ as a POST block | ✅ Try it out works |
+
+Nothing is duplicated at runtime — both describe the same handler, and
+`meta.querySource` tells you which route a response came through. To actually
+send a native QUERY, use curl or your HTTP client:
+
+```bash
+curl -X QUERY https://<host>/v1/bills \
+  -H "X-API-Key: demo-api-key-123" \
+  -H "Content-Type: application/json" \
+  -d '{"filter": {"status": "pending"}}'
+```
 
 ---
 
