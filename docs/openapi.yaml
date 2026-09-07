@@ -64,8 +64,9 @@ info:
 
     ## The HTTP QUERY Method (NEW)
     `QUERY` is a safe, idempotent method that carries a request body, so a search
-    can be expressed as structured JSON instead of a long query string. Because
-    some clients and intermediaries still reject unfamiliar verbs, three equivalent
+    can be expressed as structured JSON instead of a long query string. It is
+    standardised as **RFC 10008** (Proposed Standard, June 2026). Because some
+    clients and intermediaries still reject unfamiliar verbs, three equivalent
     forms are accepted:
 
     ```
@@ -77,6 +78,19 @@ info:
     All three run the same code and return the same body; `meta.querySource` reports
     which one you used. Queryable resources: `billers`, `bills`, `payments`, `users`.
     See `GET /v1/query-schema` for the operators and fields, or the **HTTP QUERY** tag below.
+
+    Error handling follows RFC 10008 section 2, which is worth testing explicitly
+    because the three failure modes are easy to conflate:
+
+    | Situation | Status |
+    |---|---|
+    | Body sent with no `Content-Type` | `400` |
+    | Body contradicts the declared type (invalid JSON) | `400` |
+    | `Content-Type` present but not accepted | `415` |
+    | Well-formed body, unprocessable query (unknown field or operator) | `422` |
+
+    Responses on QUERY-capable resources carry `Accept-Query`, the RFC 10008
+    Structured Fields header advertising the media types accepted for QUERY.
 
     ## Conditional Requests & Caching (NEW)
     - Single-resource `GET`s return `ETag` and `Last-Modified`
@@ -1814,6 +1828,11 @@ paths:
               schema:
                 type: string
                 enum: [query-method, method-override, query-path]
+            Accept-Query:
+              schema: { type: string }
+              description: >-
+                RFC 10008 Structured Fields list of the media types this
+                resource accepts for QUERY
           content:
             application/json:
               schema:
@@ -1821,9 +1840,19 @@ paths:
         '304':
           description: Not modified (If-None-Match matched)
         '400':
-          description: Unknown field, unknown operator or malformed JSON
+          description: >-
+            Content-Type is missing, or the body contradicts the declared media
+            type (for example invalid JSON). RFC 10008 requires the server to
+            fail the request in both cases.
         '415':
-          description: Unsupported Content-Type
+          description: >-
+            Content-Type is present but is not a media type this resource
+            accepts. The response carries `Accept-Query`.
+        '422':
+          description: >-
+            The media type is understood and the body is well-formed, but the
+            query cannot be processed - an unknown field, unknown operator or a
+            malformed member. `error.details` names each offending member.
 
   /v1/billers/query:
     post:
@@ -1850,7 +1879,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/QueryResponse'
         '400':
-          description: Invalid query
+          description: Content-Type missing, or body inconsistent with it
+        '415':
+          description: Unsupported Content-Type
+        '422':
+          description: Well-formed body, but the query cannot be processed
 
   /v1/payments/query:
     post:
@@ -1876,7 +1909,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/QueryResponse'
         '400':
-          description: Invalid query
+          description: Content-Type missing, or body inconsistent with it
+        '415':
+          description: Unsupported Content-Type
+        '422':
+          description: Well-formed body, but the query cannot be processed
 
   /v1/users/query:
     post:
@@ -1902,7 +1939,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/QueryResponse'
         '400':
-          description: Invalid query
+          description: Content-Type missing, or body inconsistent with it
+        '415':
+          description: Unsupported Content-Type
+        '422':
+          description: Well-formed body, but the query cannot be processed
 
   # ============================================
   # ASYNC JOBS

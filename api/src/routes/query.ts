@@ -33,6 +33,11 @@ const ACCEPTED_CONTENT_TYPES = [
   'text/json',
 ];
 
+// RFC 10008 section 4: Accept-Query is a Structured Fields List of Tokens or
+// Strings holding the media ranges this resource accepts for QUERY, without
+// parameters. Media types are valid SF tokens, so the plain list is conformant.
+export const ACCEPT_QUERY = ACCEPTED_CONTENT_TYPES.join(', ');
+
 /** Resource names that expose QUERY, for discovery responses. */
 export const QUERYABLE_RESOURCE_NAMES = Object.keys(QUERYABLE_RESOURCES);
 
@@ -61,8 +66,25 @@ export async function handleResourceQuery(
   // ----- Content negotiation -----
   const contentType = (request.headers.get('Content-Type') || '').split(';')[0].trim().toLowerCase();
   const rawBody = await request.text();
+  const hasContent = rawBody.trim().length > 0;
 
-  if (rawBody.trim() && contentType && !ACCEPTED_CONTENT_TYPES.includes(contentType)) {
+  // RFC 10008 section 2: "Servers MUST fail the request if the Content-Type
+  // request field is missing or is inconsistent with the request content."
+  // A missing media type is a 400 rather than a 415 - there is nothing to
+  // negotiate, the client simply did not say what it sent.
+  if (hasContent && !contentType) {
+    return jsonResponse(
+      errorResponse(
+        'MISSING_CONTENT_TYPE',
+        `A QUERY request that carries content must declare its media type. Set Content-Type to one of: ${ACCEPTED_CONTENT_TYPES.join(', ')}`,
+        requestId
+      ),
+      400,
+      { 'X-Request-Id': requestId, 'Accept-Query': ACCEPT_QUERY }
+    );
+  }
+
+  if (hasContent && !ACCEPTED_CONTENT_TYPES.includes(contentType)) {
     return jsonResponse(
       errorResponse(
         'UNSUPPORTED_MEDIA_TYPE',
@@ -70,7 +92,7 @@ export async function handleResourceQuery(
         requestId
       ),
       415,
-      { 'X-Request-Id': requestId, 'Accept-Post': ACCEPTED_CONTENT_TYPES.join(', ') }
+      { 'X-Request-Id': requestId, 'Accept-Query': ACCEPT_QUERY }
     );
   }
 
@@ -80,22 +102,30 @@ export async function handleResourceQuery(
     try {
       const parsed = JSON.parse(rawBody);
       if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        // Valid JSON, consistent with the declared media type, but not a query
+        // this resource can process - RFC 10008 section 2 calls for 422 here.
         return jsonResponse(
           errorResponse(
-            'INVALID_REQUEST',
+            'UNPROCESSABLE_QUERY',
             'The QUERY body must be a JSON object with optional filter, sort, fields, page and limit members',
             requestId
           ),
-          400,
-          { 'X-Request-Id': requestId }
+          422,
+          { 'X-Request-Id': requestId, 'Accept-Query': ACCEPT_QUERY }
         );
       }
       input = parsed as QueryInput;
     } catch {
+      // The content contradicts the declared media type, which RFC 10008
+      // section 2 treats as a 400 rather than a 422.
       return jsonResponse(
-        errorResponse('MALFORMED_JSON', 'The request body is not valid JSON', requestId),
+        errorResponse(
+          'MALFORMED_JSON',
+          `The request body is not valid JSON, but Content-Type declared '${contentType}'`,
+          requestId
+        ),
         400,
-        { 'X-Request-Id': requestId }
+        { 'X-Request-Id': requestId, 'Accept-Query': ACCEPT_QUERY }
       );
     }
   }
@@ -104,15 +134,17 @@ export async function handleResourceQuery(
   const compiled = compileQuery(resource, input);
 
   if (compiled.issues.length > 0) {
+    // Understood media type, well-formed JSON, but the query itself cannot be
+    // processed - 422 Unprocessable Content per RFC 10008 section 2.
     return jsonResponse(
       errorResponse(
-        'VALIDATION_ERROR',
+        'UNPROCESSABLE_QUERY',
         'The query could not be compiled. See details for the offending members.',
         requestId,
         compiled.issues
       ),
-      400,
-      { 'X-Request-Id': requestId }
+      422,
+      { 'X-Request-Id': requestId, 'Accept-Query': ACCEPT_QUERY }
     );
   }
 
@@ -154,7 +186,11 @@ export async function handleResourceQuery(
 
     // QUERY is safe and idempotent, so conditional requests apply as they do to GET.
     if (etagMatches(request.headers.get('If-None-Match'), etag)) {
-      return notModified(etag, { 'X-Request-Id': requestId, 'X-Query-Source': source });
+      return notModified(etag, {
+        'X-Request-Id': requestId,
+        'X-Query-Source': source,
+        'Accept-Query': ACCEPT_QUERY,
+      });
     }
 
     const headers: Record<string, string> = {
@@ -163,9 +199,13 @@ export async function handleResourceQuery(
       'X-Query-Source': source,
       'X-Total-Count': String(total),
       ETag: etag,
+      // RFC 10008 section 3: QUERY responses are cacheable, and the cache key
+      // must incorporate the request content. Nothing in the chain here keys on
+      // a request body, so revalidate every time and let the ETag do the work.
       'Cache-Control': 'private, max-age=0, must-revalidate',
       Vary: 'Accept, Authorization, X-API-Key',
       Allow: 'GET, POST, QUERY, HEAD, OPTIONS',
+      'Accept-Query': ACCEPT_QUERY,
     };
 
     const link = buildLinkHeader(new URL(request.url), pagination);
@@ -207,7 +247,17 @@ export function querySchemaFor(resourceName?: string) {
     method: 'QUERY',
     description:
       'QUERY is a safe, idempotent method that carries a request body. Send a JSON object with optional filter, sort, fields, page and limit members.',
+    specification: 'RFC 10008 - The HTTP QUERY Method (Proposed Standard, June 2026)',
     contentTypes: ACCEPTED_CONTENT_TYPES,
+    acceptQueryHeader: ACCEPT_QUERY,
+    statusCodes: {
+      '200': 'Query executed. Carries ETag, Link, X-Total-Count and Accept-Query.',
+      '304': 'If-None-Match matched the result set. QUERY is safe, so conditional requests apply as they do to GET.',
+      '400': 'Content-Type missing, or the body contradicts the declared media type (for example invalid JSON).',
+      '415': 'Content-Type is present but not a media type this resource accepts.',
+      '422': 'Media type understood and the body is well-formed, but the query cannot be processed - an unknown field, operator or malformed member.',
+      '405': 'This resource does not support QUERY.',
+    },
     operators: {
       eq: 'Equal to. Also the shorthand when a bare value is given.',
       ne: 'Not equal to.',

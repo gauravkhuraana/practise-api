@@ -23,7 +23,7 @@ import { webhooksRouter } from './routes/webhooks';
 import { bulkRouter } from './routes/bulk';
 
 // Protocol-level features
-import { handleResourceQuery, querySchemaFor, QUERYABLE_RESOURCE_NAMES } from './routes/query';
+import { handleResourceQuery, querySchemaFor, QUERYABLE_RESOURCE_NAMES, ACCEPT_QUERY } from './routes/query';
 import { QUERYABLE_RESOURCES } from './lib/resources';
 import { evaluatePreconditions, applyResponseValidators } from './lib/conditional';
 import { checkIdempotency, storeIdempotentResponse } from './lib/idempotency';
@@ -372,7 +372,9 @@ export default {
         const headers = new Headers(preflight.headers);
         headers.set('Allow', allowed.join(', '));
         if (allowed.includes('QUERY')) {
-          headers.set('Accept-Query', 'application/json, application/query+json');
+          // Same list the QUERY handler advertises, so OPTIONS and the response
+          // headers can never drift apart.
+          headers.set('Accept-Query', ACCEPT_QUERY);
         }
         headers.set('Accept-Patch', 'application/json, application/json-patch+json');
         return new Response(null, { status: 204, headers });

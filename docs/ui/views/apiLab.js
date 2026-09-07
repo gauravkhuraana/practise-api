@@ -183,8 +183,9 @@ export function renderApiLab(outlet, ctx) {
       <div class="card">
         <h3 class="card__title">Search with a request body</h3>
         <p class="muted">
-          QUERY is a safe, idempotent method that carries a body, so complex search
-          criteria can be structured JSON instead of an unreadable query string.
+          QUERY is a safe, idempotent method that carries a body (RFC 10008), so
+          complex search criteria can be structured JSON instead of an unreadable
+          query string.
           Because some clients and proxies still reject unfamiliar verbs, the same
           request can be sent three ways &mdash; run all three and compare
           <code>meta.querySource</code>.
@@ -212,7 +213,7 @@ export function renderApiLab(outlet, ctx) {
         </label>
         <div class="row">
           <button class="btn" id="runQuery" data-output="#queryOut">Send query</button>
-          <button class="btn btn--secondary" id="runQueryInvalid" data-output="#queryOut">Send an invalid field (expect 400)</button>
+          <button class="btn btn--secondary" id="runQueryInvalid" data-output="#queryOut">Send an invalid field (expect 422)</button>
           <button class="btn btn--ghost" id="runQuerySchema" data-output="#queryOut">Fetch query schema</button>
         </div>
         <div class="lab-output" id="queryOut"><p class="muted">No requests sent yet.</p></div>
@@ -473,7 +474,7 @@ export function renderApiLab(outlet, ctx) {
       'Invalid field and sort',
       `POST /v1/${resource}/query`,
       result,
-      'Expect 400 with one entry in error.details per offending member, naming the fields that are queryable.'
+      'Expect 422 Unprocessable Content, with one entry in error.details per offending member naming the queryable fields. RFC 10008 reserves 400 for a missing or contradicted Content-Type and 415 for an unaccepted one, so the three failure modes stay distinguishable.'
     );
   });
 

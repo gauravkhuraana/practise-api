@@ -104,6 +104,7 @@ Follow this logical sequence to understand and test the complete bill payment wo
 | **405 Method Not Allowed** ✨ | Any resource | `PUT /v1/billers` (collection, not item) — returns `Allow` |
 | **412 Precondition Failed** ✨ | `PATCH /v1/billers/{id}` | Send a stale `If-Match: "wrong-etag"` |
 | **415 Unsupported Media Type** ✨ | `QUERY /v1/bills` | Send `Content-Type: text/plain` |
+| **422 Unprocessable Content** ✨ | `QUERY /v1/bills` | Filter on a field that does not exist |
 | **409 Idempotency Conflict** ✨ | `POST /v1/payments` | Reuse an `Idempotency-Key` with a different body |
 | **Any status you like** ✨ | `/v1/simulate/status/{code}` | `GET /v1/simulate/status/418` |
 | **Broken JSON** ✨ | `/v1/simulate/malformed-json` | Truncated body served as `application/json` |
@@ -137,11 +138,13 @@ Follow this logical sequence to understand and test the complete bill payment wo
 
 ## 🔎 The HTTP QUERY Method
 
-`QUERY` is a safe, idempotent HTTP method that carries a request body. It exists
-because complex searches do not fit comfortably in a query string: once you need
-ranges, `OR` groups and a list of twenty IDs, a URL becomes unreadable and starts
-bumping into length limits. `QUERY` keeps the semantics of `GET` — no side
-effects, cacheable, safe to retry — while letting the criteria be structured JSON.
+`QUERY` is a safe, idempotent HTTP method that carries a request body,
+standardised as **[RFC 10008](https://www.rfc-editor.org/info/rfc10008/)**
+(Proposed Standard, June 2026). It exists because complex searches do not fit
+comfortably in a query string: once you need ranges, `OR` groups and a list of
+twenty IDs, a URL becomes unreadable and starts bumping into length limits.
+`QUERY` keeps the semantics of `GET` — no side effects, cacheable, safe to
+retry — while letting the criteria be structured JSON.
 
 Some clients and proxies still reject verbs they do not recognise, so this API
 accepts three equivalent forms. All three run the same code and return the same
@@ -218,9 +221,19 @@ field list.
   server interpreted your request
 - `ETag` on the result set — resend it as `If-None-Match` to get a `304`
 - `Link` and `X-Total-Count` headers for pagination
-- `400` with per-member `details` for an unknown field or operator
-- `415` when `Content-Type` is not a JSON flavour
+- `Accept-Query` on every response from a QUERY-capable resource, and *absent*
+  from one that is not — that asymmetry is itself worth an assertion
 - `405` when you send `QUERY` to a resource that does not support it
+
+The failure modes follow RFC 10008 section 2, and they are easy to conflate —
+worth a test each:
+
+| Situation | Status |
+|---|---|
+| Body sent with no `Content-Type` | `400` |
+| Body contradicts the declared type (invalid JSON) | `400` |
+| `Content-Type` present but not accepted | `415` |
+| Well-formed body, unprocessable query (unknown field or operator) | `422` with per-member `details` |
 
 > **A note on deployment:** Cloudflare Workers handles the `QUERY` verb, but
 > corporate proxies and some HTTP clients still refuse unknown methods. If a
