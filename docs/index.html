@@ -632,6 +632,10 @@
         <span class="schema-name">📁 UploadedFile</span>
         <button class="copy-btn schema-copy-btn">Copy JSON</button>
       </div>
+      <div class="schema-card" data-schema="Pagination">
+        <span class="schema-name">📄 Pagination</span>
+        <button class="copy-btn schema-copy-btn">Copy JSON</button>
+      </div>
       <div class="schema-card" data-schema="Error">
         <span class="schema-name">⚠️ Error</span>
         <button class="copy-btn schema-copy-btn">Copy JSON</button>
@@ -734,110 +738,254 @@
       User: {
         type: "object",
         properties: {
-          id: { type: "string", example: "usr_abc123" },
-          email: { type: "string", format: "email", example: "john@example.com" },
-          phone: { type: "string", example: "+1234567890" },
-          firstName: { type: "string", example: "John" },
-          lastName: { type: "string", example: "Doe" },
+          id: { type: "string", example: "user-demo-001" },
+          email: { type: "string", format: "email", example: "demo@example.com" },
+          phone: { type: "string", example: "+919876543210" },
+          firstName: { type: "string", example: "Demo" },
+          lastName: { type: "string", example: "User" },
           kycStatus: { type: "string", enum: ["pending", "verified", "rejected"], example: "verified" },
-          address: { "$ref": "#/components/schemas/Address" },
-          createdAt: { type: "string", format: "date-time" },
-          updatedAt: { type: "string", format: "date-time" }
+          address: {
+            type: "object",
+            properties: {
+              line1: { type: "string", example: "123 Main Street" },
+              line2: { type: "string", example: "Apt 4B" },
+              city: { type: "string", example: "Mumbai" },
+              state: { type: "string", example: "Maharashtra" },
+              postalCode: { type: "string", example: "400001" },
+              country: { type: "string", example: "IN" }
+            }
+          },
+          createdAt: { type: "string", format: "date-time", example: "2025-12-18T10:30:00.000Z" },
+          updatedAt: { type: "string", format: "date-time", example: "2025-12-18T10:30:00.000Z" }
         },
-        required: ["id", "email", "firstName", "lastName", "kycStatus"]
+        required: ["id", "email", "firstName"]
       },
       Bill: {
         type: "object",
         properties: {
-          id: { type: "string", example: "bill_xyz789" },
-          userId: { type: "string", example: "usr_abc123" },
-          billerId: { type: "string", example: "blr_elec001" },
-          accountNumber: { type: "string", example: "ACC123456" },
-          amount: { type: "number", example: 125.50 },
-          currency: { type: "string", example: "USD" },
-          dueDate: { type: "string", format: "date", example: "2024-02-15" },
-          status: { type: "string", enum: ["pending", "paid", "overdue", "cancelled"], example: "pending" },
-          description: { type: "string", example: "Monthly electricity bill" },
-          createdAt: { type: "string", format: "date-time" },
-          updatedAt: { type: "string", format: "date-time" }
+          id: { type: "string", example: "bill-001" },
+          userId: { type: "string", example: "user-demo-001" },
+          billerId: { type: "string", example: "biller-airtel-postpaid" },
+          billerName: { type: "string", example: "Airtel Postpaid" },
+          billerCategory: { type: "string", enum: ["telecom", "electricity", "water", "gas", "broadband", "dth", "insurance", "credit_card", "loan", "municipal_tax"], example: "telecom" },
+          customerIdentifier: { type: "string", example: "9876543210" },
+          customerName: { type: "string", example: "John Doe" },
+          nickname: { type: "string", example: "My Mobile Bill" },
+          amount: {
+            type: "object",
+            properties: {
+              value: { type: "number", example: 599.00 },
+              currency: { type: "string", example: "INR" }
+            }
+          },
+          dueDate: { type: "string", format: "date", example: "2025-12-25" },
+          billDate: { type: "string", format: "date", example: "2025-12-01" },
+          billPeriod: { type: "string", example: "Dec 2025" },
+          status: { type: "string", enum: ["pending", "paid", "overdue", "partially_paid", "cancelled"], example: "pending" },
+          billDetails: {
+            type: "object",
+            nullable: true,
+            additionalProperties: true,
+            description: "Biller-specific detail blob, null when the bill was not fetched from the biller",
+            example: null
+          },
+          autoPay: {
+            type: "object",
+            properties: {
+              enabled: { type: "boolean", example: false },
+              paymentMethodId: { type: "string" },
+              maxAmount: { type: "number" },
+              daysBefore: { type: "integer" }
+            }
+          },
+          createdAt: { type: "string", format: "date-time", example: "2025-12-18T10:30:00.000Z" },
+          updatedAt: { type: "string", format: "date-time", example: "2025-12-18T10:30:00.000Z" }
         },
-        required: ["id", "userId", "billerId", "accountNumber", "amount", "status"]
+        required: ["id", "userId", "billerId", "customerIdentifier", "amount", "status"]
       },
       Payment: {
         type: "object",
         properties: {
-          id: { type: "string", example: "pay_def456" },
-          billId: { type: "string", example: "bill_xyz789" },
-          userId: { type: "string", example: "usr_abc123" },
-          amount: { type: "number", example: 125.50 },
-          currency: { type: "string", example: "USD" },
-          paymentMethodId: { type: "string", example: "pm_card001" },
-          status: { type: "string", enum: ["pending", "processing", "completed", "failed", "refunded"], example: "completed" },
-          transactionRef: { type: "string", example: "TXN20240115ABC" },
-          paidAt: { type: "string", format: "date-time" },
-          createdAt: { type: "string", format: "date-time" }
+          id: { type: "string", example: "pay-abc123" },
+          billId: { type: "string", example: "bill-001" },
+          userId: { type: "string", example: "user-demo-001" },
+          billerName: { type: "string", example: "Airtel Postpaid" },
+          billNickname: { type: "string", example: "My Mobile Bill" },
+          customerIdentifier: { type: "string", example: "9876543210" },
+          amount: {
+            type: "object",
+            properties: {
+              value: { type: "number", example: 599.00 },
+              currency: { type: "string", example: "INR" }
+            }
+          },
+          convenienceFee: { type: "number", example: 0 },
+          totalAmount: {
+            type: "object",
+            properties: {
+              value: { type: "number", example: 599.00 },
+              currency: { type: "string", example: "INR" }
+            }
+          },
+          paymentMethod: {
+            type: "object",
+            properties: {
+              id: { type: "string", example: "pm-upi-001" },
+              type: { type: "string", enum: ["upi", "credit_card", "debit_card", "net_banking", "wallet"], example: "upi" },
+              details: { type: "object", nullable: true }
+            }
+          },
+          status: { type: "string", enum: ["initiated", "processing", "completed", "failed", "cancelled", "refunded", "pending_refund"], example: "completed" },
+          transactionId: { type: "string", example: "TXN20251218ABC123" },
+          referenceNumber: { type: "string", example: "REF123456789012" },
+          billerReference: { type: "string", example: "BLR1234567890" },
+          failure: {
+            type: "object",
+            nullable: true,
+            properties: {
+              code: { type: "string", example: "BANK_DECLINED" },
+              reason: { type: "string", example: "Payment declined by bank" }
+            }
+          },
+          processedAt: { type: "string", format: "date-time", example: "2025-12-18T10:30:00.000Z" },
+          createdAt: { type: "string", format: "date-time", example: "2025-12-18T10:30:00.000Z" },
+          updatedAt: { type: "string", format: "date-time", example: "2025-12-18T10:30:00.000Z" }
         },
-        required: ["id", "billId", "userId", "amount", "status"]
+        required: ["id", "billId", "userId", "amount", "totalAmount", "status"]
       },
       Biller: {
         type: "object",
         properties: {
-          id: { type: "string", example: "blr_elec001" },
-          name: { type: "string", example: "City Electric Company" },
-          category: { type: "string", enum: ["electricity", "water", "gas", "internet", "phone", "insurance", "other"], example: "electricity" },
-          logoUrl: { type: "string", format: "uri", example: "https://example.com/logo.png" },
-          supportedPaymentMethods: { type: "array", items: { type: "string" }, example: ["card", "bank_transfer"] },
-          active: { type: "boolean", example: true },
-          createdAt: { type: "string", format: "date-time" }
+          id: { type: "string", example: "biller-airtel-postpaid" },
+          name: { type: "string", example: "airtel" },
+          displayName: { type: "string", example: "Airtel Postpaid" },
+          category: { type: "string", enum: ["telecom", "electricity", "water", "gas", "broadband", "dth", "insurance", "credit_card", "loan", "municipal_tax"], example: "telecom" },
+          logoUrl: { type: "string", format: "uri", example: "https://example.com/logos/airtel.png" },
+          description: { type: "string", example: "Airtel Postpaid Mobile Bills" },
+          supportedPaymentModes: { type: "array", items: { type: "string", enum: ["upi", "credit_card", "debit_card", "net_banking", "wallet"] }, example: ["upi", "credit_card", "debit_card", "net_banking"] },
+          fetchBillSupported: { type: "boolean", example: true },
+          partialPaymentAllowed: { type: "boolean", example: false },
+          minAmount: { type: "number", example: 1 },
+          maxAmount: { type: "number", example: 50000 },
+          customerIdLabel: { type: "string", example: "Mobile Number" },
+          customerIdPattern: { type: "string", example: "^[6-9][0-9]{9}$" },
+          isActive: { type: "boolean", example: true },
+          createdAt: { type: "string", format: "date-time", example: "2025-12-18T10:30:00.000Z" },
+          updatedAt: { type: "string", format: "date-time", example: "2025-12-18T10:30:00.000Z" }
         },
-        required: ["id", "name", "category", "active"]
+        required: ["id", "name", "displayName", "category", "isActive"]
       },
       PaymentMethod: {
         type: "object",
         properties: {
-          id: { type: "string", example: "pm_card001" },
-          userId: { type: "string", example: "usr_abc123" },
-          type: { type: "string", enum: ["card", "bank_account", "wallet"], example: "card" },
-          last4: { type: "string", example: "4242" },
-          brand: { type: "string", example: "visa" },
-          expiryMonth: { type: "integer", example: 12 },
-          expiryYear: { type: "integer", example: 2025 },
+          id: { type: "string", example: "pm-upi-001" },
+          userId: { type: "string", example: "user-demo-001" },
+          type: { type: "string", enum: ["upi", "credit_card", "debit_card", "net_banking", "wallet"], example: "upi" },
+          displayName: { type: "string", example: "My UPI" },
           isDefault: { type: "boolean", example: true },
-          createdAt: { type: "string", format: "date-time" }
+          isActive: { type: "boolean", example: true },
+          upiId: { type: "string", example: "myupi@okaxis" },
+          card: {
+            type: "object",
+            nullable: true,
+            properties: {
+              lastFour: { type: "string", example: "4242" },
+              network: { type: "string", enum: ["visa", "mastercard", "amex", "rupay", "discover"], example: "visa" },
+              expiryMonth: { type: "integer", example: 12 },
+              expiryYear: { type: "integer", example: 2027 },
+              holderName: { type: "string", example: "JOHN DOE" }
+            }
+          },
+          bank: {
+            type: "object",
+            nullable: true,
+            properties: {
+              name: { type: "string", example: "HDFC Bank" },
+              accountLastFour: { type: "string", example: "5678" }
+            }
+          },
+          wallet: {
+            type: "object",
+            nullable: true,
+            properties: {
+              provider: { type: "string", example: "Paytm" },
+              walletId: { type: "string", example: "wallet123" }
+            }
+          },
+          createdAt: { type: "string", format: "date-time", example: "2025-12-18T10:30:00.000Z" },
+          updatedAt: { type: "string", format: "date-time", example: "2025-12-18T10:30:00.000Z" }
         },
-        required: ["id", "userId", "type"]
+        required: ["id", "userId", "type", "displayName"]
       },
       Address: {
         type: "object",
         properties: {
-          street: { type: "string", example: "123 Main St" },
-          city: { type: "string", example: "New York" },
-          state: { type: "string", example: "NY" },
-          postalCode: { type: "string", example: "10001" },
-          country: { type: "string", example: "US" }
+          line1: { type: "string", example: "123 Main Street" },
+          line2: { type: "string", example: "Apt 4B" },
+          city: { type: "string", example: "Mumbai" },
+          state: { type: "string", example: "Maharashtra" },
+          postalCode: { type: "string", example: "400001" },
+          country: { type: "string", example: "IN" }
         }
       },
       UploadedFile: {
         type: "object",
         properties: {
-          id: { type: "string", example: "file_abc123" },
-          name: { type: "string", example: "document.pdf" },
-          size: { type: "integer", example: 102400 },
+          id: { type: "string", example: "file-abc123" },
+          filename: { type: "string", example: "file-abc123-document.pdf" },
+          originalName: { type: "string", example: "document.pdf" },
           mimeType: { type: "string", example: "application/pdf" },
-          description: { type: "string", example: "ID verification document" },
-          uploadedAt: { type: "string", format: "date-time" }
+          size: { type: "integer", example: 102400 },
+          uploadedAt: { type: "string", format: "date-time", example: "2025-12-18T10:30:00.000Z" },
+          userId: { type: "string", example: "user-demo-001" },
+          metadata: {
+            type: "object",
+            additionalProperties: { type: "string" },
+            example: { description: "ID verification document", category: "documents" }
+          }
         },
-        required: ["id", "name", "size", "mimeType"]
+        required: ["id", "filename", "originalName", "mimeType", "size", "uploadedAt"]
       },
       Error: {
         type: "object",
         properties: {
-          error: { type: "string", example: "Validation failed" },
-          message: { type: "string", example: "Email is required" },
-          code: { type: "string", example: "VALIDATION_ERROR" },
-          details: { type: "object", additionalProperties: true }
+          success: { type: "boolean", example: false },
+          error: {
+            type: "object",
+            properties: {
+              code: { type: "string", example: "VALIDATION_ERROR" },
+              message: { type: "string", example: "Invalid input data" },
+              traceId: { type: "string", example: "abc-123" },
+              timestamp: { type: "string", format: "date-time", example: "2025-12-18T10:30:00.000Z" },
+              details: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    field: { type: "string", example: "email" },
+                    code: { type: "string", example: "REQUIRED" },
+                    message: { type: "string", example: "email is required" }
+                  }
+                }
+              }
+            }
+          }
         },
-        required: ["error"]
+        required: ["success", "error"]
+      },
+      Pagination: {
+        type: "object",
+        properties: {
+          page: { type: "integer", example: 1 },
+          limit: { type: "integer", example: 10 },
+          total: { type: "integer", example: 100 },
+          totalPages: { type: "integer", example: 10 },
+          hasNext: { type: "boolean", example: true },
+          hasPrev: { type: "boolean", example: false },
+          offset: { type: "integer", example: 0 },
+          nextCursor: { type: "string", nullable: true, example: null },
+          prevCursor: { type: "string", nullable: true, example: null }
+        }
       }
     };
 
