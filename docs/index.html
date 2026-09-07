@@ -683,7 +683,10 @@
         ],
         layout: "StandaloneLayout",
         validatorUrl: null,
-        supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch', 'head'],
+        // 'query' must be listed or Swagger UI renders the QUERY operations but
+        // hides Try it out / Execute for them. It is not in Swagger UI's default
+        // list either, so it has to be named explicitly.
+        supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch', 'head', 'options', 'query'],
         persistAuthorization: true,
         filter: true,
         tryItOutEnabled: true,
