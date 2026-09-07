@@ -240,6 +240,37 @@ worth a test each:
 > native `QUERY` fails in your environment, the two POST forms above are there
 > for exactly that reason — and comparing the three is itself a useful test.
 
+### How QUERY is described in the OpenAPI spec
+
+The spec is **OpenAPI 3.2.0**, which is the first version able to describe a
+non-standard verb — via `additionalOperations`, keyed by the uppercase method
+name:
+
+```yaml
+/v1/bills:
+  get: ...
+  post: ...
+  additionalOperations:
+    QUERY:
+      summary: Search bills with a request body (native QUERY)
+      requestBody: ...
+```
+
+There is a catch worth knowing, because it looks like a bug otherwise:
+**Swagger UI does not render `additionalOperations` yet.** It parses a 3.2
+document without complaint, then shows only `get` and `post` — the QUERY
+operation is silently invisible. Redocly *does* validate it (lint rules resolve
+against `#/paths/~1v1~1bills/additionalOperations/QUERY`).
+
+So both forms are in the spec on purpose:
+
+| Form | Purpose |
+|------|---------|
+| `additionalOperations.QUERY` | The truthful description. Validated by Redocly and any 3.2-aware tooling. |
+| `POST /v1/{resource}/query` | A real operation Swagger UI can render and "Try it out" can execute. |
+
+Nothing is duplicated at runtime — both describe the same handler.
+
 ---
 
 ## ⚡ Feature Cheat Sheet

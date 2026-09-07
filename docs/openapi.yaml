@@ -1,4 +1,4 @@
-openapi: 3.0.3
+openapi: 3.2.0
 info:
   title: Bill Payment API
   description: |
@@ -472,6 +472,50 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '409':
           $ref: '#/components/responses/Conflict'
+    additionalOperations:
+      # OpenAPI 3.2 describes non-standard verbs here, keyed by the uppercase
+      # method name. This is the native RFC 10008 form; the POST fallback at
+      # /v1/billers/query documents the same operation for tooling that does
+      # not yet render additionalOperations.
+      QUERY:
+        tags: [HTTP QUERY]
+        summary: Search billers with a request body (native QUERY)
+        description: |
+          Native `QUERY /v1/billers` - RFC 10008. Safe, idempotent, and
+          carries a JSON body. Identical in behaviour to
+          `POST /v1/billers/query`; `meta.querySource` distinguishes them.
+        operationId: queryBillersNative
+        requestBody:
+          required: false
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryRequest'
+              example:
+                filter: { category: telecom, isActive: true }
+                sort: [displayName]
+        responses:
+          '200':
+            description: Matching resources
+            headers:
+              Accept-Query:
+                schema: { type: string }
+              ETag:
+                schema: { type: string }
+              Link:
+                schema: { type: string }
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/QueryResponse'
+          '304':
+            description: Not modified
+          '400':
+            description: Content-Type missing, or body inconsistent with it
+          '415':
+            description: Unsupported Content-Type
+          '422':
+            description: Well-formed body, but the query cannot be processed
 
   /v1/billers/categories:
     get:
@@ -690,6 +734,51 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+    additionalOperations:
+      # OpenAPI 3.2 describes non-standard verbs here, keyed by the uppercase
+      # method name. This is the native RFC 10008 form; the POST fallback at
+      # /v1/bills/query documents the same operation for tooling that does
+      # not yet render additionalOperations.
+      QUERY:
+        tags: [HTTP QUERY]
+        summary: Search bills with a request body (native QUERY)
+        description: |
+          Native `QUERY /v1/bills` - RFC 10008. Safe, idempotent, and
+          carries a JSON body. Identical in behaviour to
+          `POST /v1/bills/query`; `meta.querySource` distinguishes them.
+        operationId: queryBillsNative
+        requestBody:
+          required: false
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryRequest'
+              example:
+                filter: { status: { in: [pending, overdue] }, amount: { gte: 500 } }
+                sort: ["-amount"]
+                limit: 10
+        responses:
+          '200':
+            description: Matching resources
+            headers:
+              Accept-Query:
+                schema: { type: string }
+              ETag:
+                schema: { type: string }
+              Link:
+                schema: { type: string }
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/QueryResponse'
+          '304':
+            description: Not modified
+          '400':
+            description: Content-Type missing, or body inconsistent with it
+          '415':
+            description: Unsupported Content-Type
+          '422':
+            description: Well-formed body, but the query cannot be processed
 
   /v1/bills/summary:
     get:
@@ -988,6 +1077,50 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '404':
           description: Bill or payment method not found
+    additionalOperations:
+      # OpenAPI 3.2 describes non-standard verbs here, keyed by the uppercase
+      # method name. This is the native RFC 10008 form; the POST fallback at
+      # /v1/payments/query documents the same operation for tooling that does
+      # not yet render additionalOperations.
+      QUERY:
+        tags: [HTTP QUERY]
+        summary: Search payments with a request body (native QUERY)
+        description: |
+          Native `QUERY /v1/payments` - RFC 10008. Safe, idempotent, and
+          carries a JSON body. Identical in behaviour to
+          `POST /v1/payments/query`; `meta.querySource` distinguishes them.
+        operationId: queryPaymentsNative
+        requestBody:
+          required: false
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryRequest'
+              example:
+                filter: { status: completed }
+                sort: ["-createdAt"]
+        responses:
+          '200':
+            description: Matching resources
+            headers:
+              Accept-Query:
+                schema: { type: string }
+              ETag:
+                schema: { type: string }
+              Link:
+                schema: { type: string }
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/QueryResponse'
+          '304':
+            description: Not modified
+          '400':
+            description: Content-Type missing, or body inconsistent with it
+          '415':
+            description: Unsupported Content-Type
+          '422':
+            description: Well-formed body, but the query cannot be processed
 
   /v1/payments/stats:
     get:
@@ -1335,6 +1468,50 @@ paths:
                 $ref: '#/components/schemas/UserResponse'
         '409':
           description: User with this email already exists
+    additionalOperations:
+      # OpenAPI 3.2 describes non-standard verbs here, keyed by the uppercase
+      # method name. This is the native RFC 10008 form; the POST fallback at
+      # /v1/users/query documents the same operation for tooling that does
+      # not yet render additionalOperations.
+      QUERY:
+        tags: [HTTP QUERY]
+        summary: Search users with a request body (native QUERY)
+        description: |
+          Native `QUERY /v1/users` - RFC 10008. Safe, idempotent, and
+          carries a JSON body. Identical in behaviour to
+          `POST /v1/users/query`; `meta.querySource` distinguishes them.
+        operationId: queryUsersNative
+        requestBody:
+          required: false
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryRequest'
+              example:
+                filter: { kycStatus: verified }
+                fields: [id, email, kycStatus]
+        responses:
+          '200':
+            description: Matching resources
+            headers:
+              Accept-Query:
+                schema: { type: string }
+              ETag:
+                schema: { type: string }
+              Link:
+                schema: { type: string }
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/QueryResponse'
+          '304':
+            description: Not modified
+          '400':
+            description: Content-Type missing, or body inconsistent with it
+          '415':
+            description: Unsupported Content-Type
+          '422':
+            description: Well-formed body, but the query cannot be processed
 
   /v1/users/{id}:
     get:
@@ -2905,17 +3082,15 @@ components:
             progress: { type: integer, minimum: 0, maximum: 100 }
             statusUrl: { type: string }
             result:
-              type: object
-              nullable: true
+              type: ["object", "null"]
               description: Present once the job completes successfully.
             error:
-              type: object
-              nullable: true
+              type: ["object", "null"]
               properties:
                 code: { type: string }
                 message: { type: string }
             createdAt: { type: string, format: date-time }
-            completedAt: { type: string, format: date-time, nullable: true }
+            completedAt: { type: ["string", "null"], format: date-time }
 
     BulkResponse:
       type: object
@@ -3007,12 +3182,10 @@ components:
           description: Current offset (0-based)
           example: 0
         nextCursor:
-          type: string
-          nullable: true
+          type: ["string", "null"]
           description: Cursor for next page (cursor-based pagination)
         prevCursor:
-          type: string
-          nullable: true
+          type: ["string", "null"]
           description: Cursor for previous page (cursor-based pagination)
       example:
         page: 1
