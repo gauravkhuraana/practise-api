@@ -15,6 +15,7 @@ import {
 } from '../utils';
 import { parseListOptions } from '../lib/query';
 import { usersResource } from '../lib/resources';
+import { cachedCount, invalidateCounts } from '../lib/countCache';
 
 export const usersRouter = Router({ base: '/v1/users' });
 
@@ -61,10 +62,12 @@ usersRouter.get('/', async (request: IRequest, env: Env, ctx?: RequestContext) =
       params.push(createdBy);
     }
 
-    const countResult = await env.DB.prepare(`SELECT COUNT(*) as count FROM users ${whereClause}`)
-      .bind(...params)
-      .first<{ count: number }>();
-    const total = countResult?.count || 0;
+    const total = await cachedCount(`users:${whereClause}:${JSON.stringify(params)}`, async () => {
+      const countResult = await env.DB.prepare(`SELECT COUNT(*) as count FROM users ${whereClause}`)
+        .bind(...params)
+        .first<{ count: number }>();
+      return countResult?.count || 0;
+    });
 
     const users = await env.DB.prepare(
       `SELECT * FROM users ${whereClause} ORDER BY ${orderBySql} LIMIT ? OFFSET ?`
@@ -403,6 +406,7 @@ usersRouter.post('/', async (request: IRequest, env: Env, ctx?: RequestContext) 
         ctx?.auth?.identifier || 'api'
       )
       .run();
+    invalidateCounts();
 
     const created = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(id).first();
 
@@ -491,6 +495,7 @@ usersRouter.put('/:id', async (request: IRequest, env: Env, ctx?: RequestContext
         id
       )
       .run();
+    invalidateCounts();
 
     const updated = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(id).first();
 
@@ -619,6 +624,7 @@ usersRouter.patch('/:id', async (request: IRequest, env: Env, ctx?: RequestConte
     await env.DB.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`)
       .bind(...values)
       .run();
+    invalidateCounts();
 
     const updated = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(id).first();
 
@@ -691,6 +697,7 @@ usersRouter.delete('/:id', async (request: IRequest, env: Env, ctx?: RequestCont
     // Delete related data
     await env.DB.prepare('DELETE FROM payment_methods WHERE user_id = ?').bind(id).run();
     await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(id).run();
+    invalidateCounts();
 
     return formatResponse(
       request,
@@ -755,6 +762,7 @@ usersRouter.post('/:id/verify-kyc', async (request: IRequest, env: Env, ctx?: Re
     await env.DB.prepare('UPDATE users SET kyc_status = ?, updated_at = ? WHERE id = ?')
       .bind(newStatus, now, id)
       .run();
+    invalidateCounts();
 
     const updated = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(id).first();
 

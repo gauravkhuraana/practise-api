@@ -28,6 +28,7 @@ import { QUERYABLE_RESOURCES } from './lib/resources';
 import { evaluatePreconditions, applyResponseValidators } from './lib/conditional';
 import { checkIdempotency, storeIdempotentResponse } from './lib/idempotency';
 import { rewriteJsonPatchRequest, JSON_PATCH_CONTENT_TYPE } from './lib/jsonPatch';
+import { invalidateCounts } from './lib/countCache';
 import { applyFieldProjection, buildLinkHeader, methodNotAllowed } from './lib/http';
 
 // Create main router
@@ -587,6 +588,7 @@ export default {
       await env.DB.exec(`DELETE FROM payment_methods WHERE created_by != 'system'`);
       await env.DB.exec(`DELETE FROM users WHERE created_by != 'system'`);
       await env.DB.exec(`DELETE FROM rate_limits`);
+      invalidateCounts();
       console.log('Data reset completed successfully');
     } catch (error) {
       console.error('Data reset failed:', error);
